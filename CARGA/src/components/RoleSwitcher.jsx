@@ -34,10 +34,7 @@ export default function RoleSwitcher() {
           </div>
           <div>
             <span className="font-bold tracking-tight text-lg block leading-none">
-              AgriHaul<span className="text-emerald-400">.</span>
-            </span>
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider">
-              {t('prototypeTag')}
+              CARGA<span className="text-emerald-400">.</span>
             </span>
           </div>
         </div>
