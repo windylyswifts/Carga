@@ -3,8 +3,9 @@ import { Sprout, Store, Truck, Radio } from 'lucide-react';
 import { useLogistics } from '../context/LogisticsContext';
 
 export default function RoleSwitcher() {
-  const { activeRole, setActiveRole, activeBooking, trucks } = useLogistics();
+  const { activeRole, setActiveRole, activeBooking, trucks, cropListings } = useLogistics();
   const onlineTruckCount = trucks.filter((t) => t.isAvailable).length;
+  const availableCropCount = cropListings.filter((c) => c.quantityKg > 0).length;
 
   const roles = [
     {
@@ -23,7 +24,7 @@ export default function RoleSwitcher() {
       id: 'business',
       label: 'Business (Buyer)',
       icon: Store,
-      badge: null,
+      badge: `${availableCropCount} Crops`,
     },
   ];
 
