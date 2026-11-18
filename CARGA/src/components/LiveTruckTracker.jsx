@@ -9,10 +9,11 @@ import {
   FastForward,
   RotateCcw,
 } from 'lucide-react';
-import { useLogistics, TRIP_STAGES } from '../context/LogisticsContext';
+import { useLogistics, TRIP_STAGES, KG_PER_SACK } from '../context/LogisticsContext';
+import { getLocalizedText } from '../utils/translations';
 
 export default function LiveTruckTracker() {
-  const { activeBooking, advanceTripStage, completeAndClearBooking } = useLogistics();
+  const { language, t, activeBooking, advanceTripStage, completeAndClearBooking } = useLogistics();
 
   if (!activeBooking) return null;
 
@@ -36,10 +37,9 @@ export default function LiveTruckTracker() {
     Math.round(((100 - liveProgress) / 100) * estimatedMinutes)
   );
 
-  // Quadratic Bezier curve coordinates for moving truck pin
-  const t = liveProgress / 100;
-  const truckX = (1 - t) * (1 - t) * 80 + 2 * (1 - t) * t * 300 + t * t * 520;
-  const truckY = (1 - t) * (1 - t) * 190 + 2 * (1 - t) * t * 40 + t * t * 160;
+  const t2 = liveProgress / 100;
+  const truckX = (1 - t2) * (1 - t2) * 80 + 2 * (1 - t2) * t2 * 300 + t2 * t2 * 520;
+  const truckY = (1 - t2) * (1 - t2) * 190 + 2 * (1 - t2) * t2 * 40 + t2 * t2 * 160;
 
   return (
     <div className="bg-white rounded-2xl border-2 border-emerald-500 shadow-md overflow-hidden">
@@ -59,14 +59,13 @@ export default function LiveTruckTracker() {
               }`}
             />
             {isWaitingForDriver
-              ? 'WAITING FOR DRIVER'
+              ? t('waitingForDriverBadge')
               : isDelivered
-              ? 'DELIVERED'
-              : 'LIVE TRUCK MAP'}
+              ? t('deliveredBadge')
+              : t('liveMapBadge')}
           </span>
         </div>
 
-        {/* Quick Demo Button (Also controllable from Driver / Lender tab) */}
         <div>
           {!isDelivered ? (
             <button
@@ -74,7 +73,7 @@ export default function LiveTruckTracker() {
               className="flex items-center gap-1.5 text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold px-3.5 py-2 rounded-xl transition cursor-pointer"
             >
               <FastForward className="w-4 h-4" />
-              {isWaitingForDriver ? 'Simulate Driver Accept' : 'Next Trip Step (Demo)'}
+              {isWaitingForDriver ? t('btnSimAccept') : t('btnNextStepDemo')}
             </button>
           ) : (
             <button
@@ -82,36 +81,37 @@ export default function LiveTruckTracker() {
               className="flex items-center gap-1.5 text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-3.5 py-2 rounded-xl transition cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
-              Book Another Truck
+              {t('btnBookAnother')}
             </button>
           )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3">
-        {/* Visual Route Map (Left 2 Columns) */}
+        {/* Visual Route Map */}
         <div className="lg:col-span-2 p-5 sm:p-6 bg-slate-50 border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col justify-between">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                What is happening now
+                {t('whatHappeningNow')}
               </span>
-              <h3 className="text-2xl font-extrabold text-slate-900">{currentStage.label}</h3>
-              <p className="text-base text-slate-600">{currentStage.subtext}</p>
+              <h3 className="text-2xl font-extrabold text-slate-900">
+                {t(currentStage.labelKey)}
+              </h3>
+              <p className="text-base text-slate-600">{t(currentStage.subKey)}</p>
             </div>
 
             <div className="bg-white px-4 py-2.5 rounded-xl border-2 border-slate-200 text-right">
               <div className="flex items-center justify-end gap-1.5 text-slate-500 text-xs font-bold">
                 <Clock className="w-4 h-4 text-emerald-600" />
-                <span>Arrival Time</span>
+                <span>{t('arrivalTimeLabel')}</span>
               </div>
               <p className="text-xl font-extrabold text-slate-900">
-                {isDelivered ? 'Arrived!' : `~${remainingMinutes} mins`}
+                {isDelivered ? t('arrivedExcl') : t('minsApprox', { mins: remainingMinutes })}
               </p>
             </div>
           </div>
 
-          {/* Interactive Route Map */}
           <div className="relative w-full h-64 bg-[#eef3ef] rounded-xl border-2 border-slate-200 overflow-hidden">
             <svg viewBox="0 0 600 240" className="w-full h-full">
               <defs>
@@ -121,11 +121,9 @@ export default function LiveTruckTracker() {
               </defs>
               <rect width="600" height="240" fill="url(#grid)" />
 
-              {/* Decorative Local Roads */}
               <path d="M 0 110 Q 220 130 600 90" fill="none" stroke="#ffffff" strokeWidth="8" />
               <path d="M 240 0 L 290 240" fill="none" stroke="#ffffff" strokeWidth="6" />
 
-              {/* Planned Route */}
               <path
                 d="M 80 190 Q 300 40 520 160"
                 fill="none"
@@ -135,7 +133,6 @@ export default function LiveTruckTracker() {
                 strokeLinecap="round"
               />
 
-              {/* Traveled Route */}
               <path
                 d="M 80 190 Q 300 40 520 160"
                 fill="none"
@@ -150,16 +147,16 @@ export default function LiveTruckTracker() {
               <g transform="translate(80, 190)">
                 <circle r="11" fill="#0f172a" />
                 <circle r="4" fill="#10b981" />
-                <rect x="-42" y="14" width="84" height="22" rx="5" fill="#0f172a" />
+                <rect x="-46" y="14" width="92" height="22" rx="5" fill="#0f172a" />
                 <text
                   x="0"
                   y="28"
                   textAnchor="middle"
                   fill="#ffffff"
-                  fontSize="11"
+                  fontSize="10"
                   fontWeight="700"
                 >
-                  YOUR FARM
+                  {t('mapPinFarm')}
                 </text>
               </g>
 
@@ -167,20 +164,20 @@ export default function LiveTruckTracker() {
               <g transform="translate(520, 160)">
                 <circle r="11" fill="#dc2626" />
                 <circle r="4" fill="#ffffff" />
-                <rect x="-42" y="14" width="84" height="22" rx="5" fill="#dc2626" />
+                <rect x="-46" y="14" width="92" height="22" rx="5" fill="#dc2626" />
                 <text
                   x="0"
                   y="28"
                   textAnchor="middle"
                   fill="#ffffff"
-                  fontSize="11"
+                  fontSize="10"
                   fontWeight="700"
                 >
-                  MARKET
+                  {t('mapPinMarket')}
                 </text>
               </g>
 
-              {/* Moving Truck Pin */}
+              {/* Moving Truck Marker */}
               <g transform={`translate(${truckX}, ${truckY})`}>
                 <circle r="20" fill="#10b981" fillOpacity="0.25" />
                 <circle r="14" fill="#059669" stroke="#ffffff" strokeWidth="3" />
@@ -190,21 +187,24 @@ export default function LiveTruckTracker() {
               </g>
             </svg>
 
-            {/* Bottom Route Summary Bar */}
             <div className="absolute bottom-3 left-3 right-3 bg-white/95 px-4 py-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs sm:text-sm">
               <div className="flex items-center gap-1.5 truncate max-w-[44%]">
                 <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="font-bold text-slate-900 truncate">{pickup}</span>
+                <span className="font-bold text-slate-900 truncate">
+                  {getLocalizedText(pickup, language)}
+                </span>
               </div>
               <Navigation className="w-4 h-4 text-slate-400 shrink-0" />
               <div className="flex items-center gap-1.5 truncate max-w-[44%]">
                 <MapPin className="w-4 h-4 text-red-600 shrink-0" />
-                <span className="font-bold text-slate-900 truncate">{destination}</span>
+                <span className="font-bold text-slate-900 truncate">
+                  {getLocalizedText(destination, language)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* 5-Step Visual Progress Bar */}
+          {/* 5-Step Progress Bar */}
           <div className="mt-5 grid grid-cols-5 gap-2">
             {TRIP_STAGES.map((stage, idx) => {
               const completed = idx <= stageIndex;
@@ -225,7 +225,7 @@ export default function LiveTruckTracker() {
                         : 'text-slate-400 font-medium'
                     }`}
                   >
-                    {stage.label}
+                    {t(stage.labelKey)}
                   </span>
                 </div>
               );
@@ -233,11 +233,11 @@ export default function LiveTruckTracker() {
           </div>
         </div>
 
-        {/* Driver Contact & Load Summary (Right Column) */}
+        {/* Driver Contact & Load Summary */}
         <div className="p-5 sm:p-6 flex flex-col justify-between bg-white">
           <div>
             <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3">
-              Your Driver
+              {t('yourDriverHeader')}
             </h4>
             <div className="p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 mb-5">
               <div className="flex items-start justify-between gap-2">
@@ -255,24 +255,26 @@ export default function LiveTruckTracker() {
                 className="mt-4 w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 transition"
               >
                 <Phone className="w-4 h-4" />
-                Call Driver ({truck.phone})
+                {t('callDriverBtn', { phone: truck.phone })}
               </a>
             </div>
 
             <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3">
-              Your Load
+              {t('yourLoadHeader')}
             </h4>
             <div className="space-y-2.5 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-slate-400" /> Crop:
+                  <Package className="w-4 h-4 text-slate-400" /> {t('cropColon')}
                 </span>
-                <span className="font-bold text-slate-900">{cropType}</span>
+                <span className="font-bold text-slate-900">
+                  {getLocalizedText(cropType, language)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">Total Load:</span>
+                <span className="text-slate-500">{t('totalLoadColon')}</span>
                 <span className="font-bold text-slate-900">
-                  {Math.round(weightKg / 50)} Sacks ({weightKg} kg)
+                  {t('sacksUnit', { count: Math.round(weightKg / KG_PER_SACK) })} ({weightKg} kg)
                 </span>
               </div>
             </div>
@@ -280,14 +282,14 @@ export default function LiveTruckTracker() {
 
           <div className="mt-6 pt-4 border-t border-slate-200">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-bold text-slate-700">Total Payment</span>
+              <span className="text-sm font-bold text-slate-700">{t('totalPaymentLabel')}</span>
               <span className="text-2xl font-extrabold text-emerald-700">
                 ₱{totalFare.toLocaleString()}
               </span>
             </div>
             <p className="text-xs text-slate-500 flex items-center gap-1">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              Pay directly to the driver—no middleman fee
+              {t('noMiddlemanNote')}
             </p>
           </div>
         </div>

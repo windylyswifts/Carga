@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { UI_STRINGS, translateDynamicText } from '../utils/translations';
 
 const LogisticsContext = createContext();
 
@@ -70,94 +71,108 @@ const INITIAL_TRUCKS = [
 const INITIAL_LISTINGS = [
   {
     id: 'CRP-01',
-    farmerName: 'Farmstead Cooperative (You)',
+    farmerName: 'Farmstead Cooperative',
     farmerPhone: '+63 919 304 5512',
-    cropName: 'Cardava Bananas (Saba)',
-    category: 'Fruits',
+    cropName: {
+      en: 'Cardava Bananas (Saba)',
+      tl: 'Saging na Saba',
+      ceb: 'Saging nga Sab-a',
+    },
+    categoryKey: 'catFruits',
     quantityKg: 650,
     pricePerKg: 28,
-    origin: 'Brgy. Sumilihon Farm',
-    harvestDate: 'Harvested Today',
-    status: 'Ready for Pickup',
+    origin: {
+      en: 'Brgy. Sumilihon Farm',
+      tl: 'Sakahan ng Brgy. Sumilihon',
+      ceb: 'Uma sa Brgy. Sumilihon',
+    },
+    harvestDate: {
+      en: 'Harvested Today',
+      tl: 'Inani Ngayong Araw',
+      ceb: 'Gi-ani Karon Adlawa',
+    },
   },
   {
     id: 'CRP-02',
     farmerName: 'Agusan Valley Growers',
     farmerPhone: '+63 917 884 1209',
-    cropName: 'Well-Milled White Rice (Palay)',
-    category: 'Grains & Corn',
+    cropName: {
+      en: 'Well-Milled White Rice (Palay)',
+      tl: 'Puting Bigas (Palay)',
+      ceb: 'Puting Bugas (Humay)',
+    },
+    categoryKey: 'catGrains',
     quantityKg: 2500,
     pricePerKg: 44,
-    origin: 'Brgy. Ampayon Rice Mill',
-    harvestDate: 'Ready Now',
-    status: 'Ready for Pickup',
+    origin: {
+      en: 'Brgy. Ampayon Rice Mill',
+      tl: 'Kiskisan sa Brgy. Ampayon',
+      ceb: 'Galingan sa Brgy. Ampayon',
+    },
+    harvestDate: {
+      en: 'Ready Now',
+      tl: 'Handa Na Ngayon',
+      ceb: 'Andam Na Karon',
+    },
   },
   {
     id: 'CRP-03',
     farmerName: 'Aling Nena Highland Plot',
     farmerPhone: '+63 926 419 7730',
-    cropName: 'Fresh Eggplant & Okra Mix',
-    category: 'Vegetables',
+    cropName: {
+      en: 'Fresh Eggplant & Okra Mix',
+      tl: 'Sariwang Talong at Okra',
+      ceb: 'Preskong Tawong ug Okra',
+    },
+    categoryKey: 'catVegetables',
     quantityKg: 400,
     pricePerKg: 52,
-    origin: 'Brgy. Libertad Farm Zone',
-    harvestDate: 'Harvested Today',
-    status: 'Ready for Pickup',
+    origin: {
+      en: 'Brgy. Libertad Farm Zone',
+      tl: 'Sakahan sa Brgy. Libertad',
+      ceb: 'Uma sa Brgy. Libertad',
+    },
+    harvestDate: {
+      en: 'Harvested Today',
+      tl: 'Inani Ngayong Araw',
+      ceb: 'Gi-ani Karon Adlawa',
+    },
   },
   {
     id: 'CRP-04',
     farmerName: 'Sitio Masao Root Farmers',
     farmerPhone: '+63 908 551 9023',
-    cropName: 'Sweet Cassava (Kamoteng Kahoy)',
-    category: 'Root Crops',
+    cropName: {
+      en: 'Sweet Cassava (Kamoteng Kahoy)',
+      tl: 'Matamis na Kamoteng Kahoy',
+      ceb: 'Tam-is nga Balanghoy',
+    },
+    categoryKey: 'catRootCrops',
     quantityKg: 1500,
     pricePerKg: 22,
-    origin: 'Brgy. Masao Coastal Farm',
-    harvestDate: 'Ready Now',
-    status: 'Ready for Pickup',
+    origin: {
+      en: 'Brgy. Masao Coastal Farm',
+      tl: 'Sakahan sa Brgy. Masao',
+      ceb: 'Uma sa Brgy. Masao',
+    },
+    harvestDate: {
+      en: 'Ready Now',
+      tl: 'Handa Na Ngayon',
+      ceb: 'Andam Na Karon',
+    },
   },
 ];
 
 export const TRIP_STAGES = [
-  {
-    id: 0,
-    label: 'Request Sent',
-    subtext: 'Waiting for driver to accept your trip',
-    driverAction: 'Accept Hauling Job',
-    progress: 5,
-  },
-  {
-    id: 1,
-    label: 'On the Way',
-    subtext: 'Driver accepted and is heading to your farm',
-    driverAction: 'Confirm Arrival at Farm',
-    progress: 35,
-  },
-  {
-    id: 2,
-    label: 'Loading',
-    subtext: 'Loading your sacks onto the truck at the farm',
-    driverAction: 'Finish Loading & Start Delivery',
-    progress: 55,
-  },
-  {
-    id: 3,
-    label: 'Delivering',
-    subtext: 'Truck is en route to the destination market',
-    driverAction: 'Confirm Drop-off & Complete Trip',
-    progress: 82,
-  },
-  {
-    id: 4,
-    label: 'Arrived',
-    subtext: 'Crops delivered safely at destination!',
-    driverAction: null,
-    progress: 100,
-  },
+  { id: 0, labelKey: 'stage0Label', subKey: 'stage0Sub', driverBtnKey: 'stage0DriverBtn', progress: 5 },
+  { id: 1, labelKey: 'stage1Label', subKey: 'stage1Sub', driverBtnKey: 'stage1DriverBtn', progress: 35 },
+  { id: 2, labelKey: 'stage2Label', subKey: 'stage2Sub', driverBtnKey: 'stage2DriverBtn', progress: 55 },
+  { id: 3, labelKey: 'stage3Label', subKey: 'stage3Sub', driverBtnKey: 'stage3DriverBtn', progress: 82 },
+  { id: 4, labelKey: 'stage4Label', subKey: 'stage4Sub', driverBtnKey: null, progress: 100 },
 ];
 
 export function calculateRouteEstimate(pickup, destination, truck) {
-  const combined = `${pickup.trim()}-${destination.trim()}`;
+  const combined = `${String(pickup).trim()}-${String(destination).trim()}`;
   const hash = combined.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const autoDistanceKm = 8 + (hash % 18);
   const estimatedMinutes = Math.round(autoDistanceKm * 2.5);
@@ -167,11 +182,22 @@ export function calculateRouteEstimate(pickup, destination, truck) {
 }
 
 export const LogisticsProvider = ({ children }) => {
+  const [language, setLanguage] = useState('en'); // 'en' | 'tl' | 'ceb'
   const [activeRole, setActiveRole] = useState('ordinary'); // 'ordinary' | 'business' | 'driver'
   const [trucks, setTrucks] = useState(INITIAL_TRUCKS);
   const [activeBooking, setActiveBooking] = useState(null);
   const [cropListings, setCropListings] = useState(INITIAL_LISTINGS);
   const [procurementOrders, setProcurementOrders] = useState([]);
+
+  // Central translation helper with {variable} interpolation
+  const t = (key, params = {}) => {
+    const dict = UI_STRINGS[language] || UI_STRINGS.en;
+    let template = dict[key] || UI_STRINGS.en[key] || key;
+    for (const [paramKey, paramVal] of Object.entries(params)) {
+      template = template.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramVal));
+    }
+    return template;
+  };
 
   // Smoothly animate truck movement along the visual route once accepted
   useEffect(() => {
@@ -213,17 +239,24 @@ export const LogisticsProvider = ({ children }) => {
     );
   };
 
-  const createBooking = ({ truck, pickup, destination, cropType, weightKg }) => {
+  // Translates dynamic pickup, destination, and crop inputs before storing
+  const createBooking = async ({ truck, pickup, destination, cropType, weightKg }) => {
     const { estimatedMinutes, totalFare } = calculateRouteEstimate(pickup, destination, truck);
+
+    const [localizedPickup, localizedDestination, localizedCrop] = await Promise.all([
+      translateDynamicText(pickup),
+      translateDynamicText(destination),
+      translateDynamicText(cropType),
+    ]);
 
     setActiveBooking({
       id: `TRIP-${Math.floor(1000 + Math.random() * 9000)}`,
       truck,
       farmerName: 'Juan Dela Cruz (Farmstead Coop)',
       farmerPhone: '+63 919 304 5512',
-      pickup,
-      destination,
-      cropType,
+      pickup: localizedPickup,
+      destination: localizedDestination,
+      cropType: localizedCrop,
       weightKg: Number(weightKg),
       estimatedMinutes,
       totalFare,
@@ -259,30 +292,37 @@ export const LogisticsProvider = ({ children }) => {
     });
   };
 
-  const cancelBooking = () => {
-    setActiveBooking(null);
-  };
+  const cancelBooking = () => setActiveBooking(null);
+  const completeAndClearBooking = () => setActiveBooking(null);
 
-  const completeAndClearBooking = () => {
-    setActiveBooking(null);
-  };
+  // Translates newly posted crop name and origin into { en, tl, ceb }
+  const addCropListing = async ({ cropName, quantityKg, pricePerKg, origin }) => {
+    const [localizedCropName, localizedOrigin] = await Promise.all([
+      translateDynamicText(cropName),
+      translateDynamicText(origin),
+    ]);
 
-  const addCropListing = (listing) => {
     setCropListings((prev) => [
       {
         id: `CRP-${Math.floor(10 + Math.random() * 90)}`,
-        farmerName: 'Farmstead Cooperative (You)',
+        farmerName: 'Farmstead Cooperative',
         farmerPhone: '+63 919 304 5512',
-        category: 'Vegetables',
-        harvestDate: 'Just Listed',
-        status: 'Ready for Pickup',
-        ...listing,
+        cropName: localizedCropName,
+        categoryKey: 'catVegetables',
+        quantityKg: Number(quantityKg),
+        pricePerKg: Number(pricePerKg),
+        origin: localizedOrigin,
+        harvestDate: {
+          en: 'Just Listed',
+          tl: 'Bagong Post Lang',
+          ceb: 'Bag-o Lang Gi-post',
+        },
       },
       ...prev,
     ]);
   };
 
-  const reserveCropSupply = ({ listingId, businessName, sacksRequested, fulfillmentMethod }) => {
+  const reserveCropSupply = ({ listingId, businessName, sacksRequested, fulfillmentKey }) => {
     const targetListing = cropListings.find((item) => item.id === listingId);
     if (!targetListing) return;
 
@@ -290,20 +330,16 @@ export const LogisticsProvider = ({ children }) => {
     const actualReservedKg = Math.min(requestedKg, targetListing.quantityKg);
     const totalAmount = actualReservedKg * targetListing.pricePerKg;
 
-    // Deduct reserved volume from available inventory
     setCropListings((prev) =>
       prev.map((item) => {
         if (item.id !== listingId) return item;
-        const remainingKg = Math.max(0, item.quantityKg - actualReservedKg);
         return {
           ...item,
-          quantityKg: remainingKg,
-          status: remainingKg === 0 ? 'Reserved / Sold Out' : 'Ready for Pickup',
+          quantityKg: Math.max(0, item.quantityKg - actualReservedKg),
         };
       })
     );
 
-    // Record procurement order
     setProcurementOrders((prev) => [
       {
         id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -316,7 +352,7 @@ export const LogisticsProvider = ({ children }) => {
         reservedSacks: Math.round(actualReservedKg / KG_PER_SACK),
         pricePerKg: targetListing.pricePerKg,
         totalAmount,
-        fulfillmentMethod,
+        fulfillmentKey,
         createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
       ...prev,
@@ -326,6 +362,9 @@ export const LogisticsProvider = ({ children }) => {
   return (
     <LogisticsContext.Provider
       value={{
+        language,
+        setLanguage,
+        t,
         activeRole,
         setActiveRole,
         trucks,

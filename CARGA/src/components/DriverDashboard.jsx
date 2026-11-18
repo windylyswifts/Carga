@@ -14,7 +14,8 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react';
-import { useLogistics, TRIP_STAGES } from '../context/LogisticsContext';
+import { useLogistics, TRIP_STAGES, KG_PER_SACK } from '../context/LogisticsContext';
+import { getLocalizedText } from '../utils/translations';
 
 const STANDBY_SPOTS = [
   'Ampayon Highway Junction',
@@ -25,6 +26,8 @@ const STANDBY_SPOTS = [
 
 export default function DriverDashboard() {
   const {
+    language,
+    t,
     trucks,
     toggleTruckAvailability,
     updateTruckLocation,
@@ -34,10 +37,9 @@ export default function DriverDashboard() {
     completeAndClearBooking,
   } = useLogistics();
 
-  // Default to the first truck, or switch to whichever truck has an active booking
   const [selectedTruckId, setSelectedTruckId] = useState(trucks[0].id);
 
-  const currentTruck = trucks.find((t) => t.id === selectedTruckId) || trucks[0];
+  const currentTruck = trucks.find((tr) => tr.id === selectedTruckId) || trucks[0];
   const hasBookingForThisTruck = activeBooking && activeBooking.truck.id === currentTruck.id;
   const hasBookingForOtherTruck = activeBooking && activeBooking.truck.id !== currentTruck.id;
 
@@ -48,49 +50,50 @@ export default function DriverDashboard() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      {/* Header + Demo Fleet Account Selector */}
+      {/* Header + Fleet Account Selector */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <span className="inline-block text-xs font-bold uppercase tracking-wider text-blue-800 bg-blue-100 px-3 py-1 rounded-full">
-            Driver / Lender Portal
+            {t('driverPortalBadge')}
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">
-            Truck Dispatch & Availability
+            {t('driverPortalTitle')}
           </h1>
         </div>
 
-        {/* Driver Account Switcher for Demo Flexibility */}
         <div className="bg-white border-2 border-slate-200 rounded-xl px-3.5 py-2 flex items-center gap-2.5 self-start">
-          <span className="text-xs font-bold text-slate-500 uppercase">Viewing Account:</span>
+          <span className="text-xs font-bold text-slate-500 uppercase">{t('viewingAccount')}</span>
           <select
             value={currentTruck.id}
             onChange={(e) => setSelectedTruckId(e.target.value)}
             className="text-sm font-extrabold text-slate-900 bg-transparent focus:outline-none cursor-pointer"
           >
-            {trucks.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.driverName} ({t.plateNumber})
+            {trucks.map((tr) => (
+              <option key={tr.id} value={tr.id}>
+                {tr.driverName} ({tr.plateNumber})
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Pitch Helper Banner if another truck in the fleet received the booking */}
+      {/* Pitch Helper Banner if another truck received the booking */}
       {hasBookingForOtherTruck && (
         <div className="mb-6 bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <AlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
             <p className="text-sm font-semibold text-amber-950">
-              A farmer booked <strong>{activeBooking.truck.driverName}</strong> (
-              {activeBooking.truck.vehicleModel}).
+              {t('otherTruckBookedMsg', {
+                driver: activeBooking.truck.driverName,
+                model: activeBooking.truck.vehicleModel,
+              })}
             </p>
           </div>
           <button
             onClick={() => setSelectedTruckId(activeBooking.truck.id)}
             className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs shrink-0 cursor-pointer transition"
           >
-            Switch to {activeBooking.truck.driverName.split(' ')[0]}'s View
+            {t('switchDriverViewBtn', { name: activeBooking.truck.driverName.split(' ')[0] })}
           </button>
         </div>
       )}
@@ -132,17 +135,18 @@ export default function DriverDashboard() {
                   currentTruck.isAvailable ? 'text-emerald-200' : 'text-slate-500'
                 }`}
               >
-                {currentTruck.vehicleModel} • Max {Math.floor(currentTruck.capacityKg / 50)} Sacks (
-                {currentTruck.capacityKg.toLocaleString()} kg)
+                {currentTruck.vehicleModel} •{' '}
+                {t('maxSacksLine', {
+                  max: Math.floor(currentTruck.capacityKg / KG_PER_SACK),
+                  kg: currentTruck.capacityKg.toLocaleString(),
+                })}
               </p>
               <p
                 className={`text-xs mt-2 font-semibold ${
                   currentTruck.isAvailable ? 'text-emerald-300' : 'text-slate-500'
                 }`}
               >
-                {currentTruck.isAvailable
-                  ? '● VISIBLE TO FARMERS — Farmers can currently book your truck.'
-                  : '○ OFFLINE — Hidden from farmers until you turn availability ON.'}
+                {currentTruck.isAvailable ? t('visibleToFarmers') : t('offlineFromFarmers')}
               </p>
             </div>
           </div>
@@ -156,14 +160,13 @@ export default function DriverDashboard() {
             }`}
           >
             <Power className="w-5 h-5" />
-            {currentTruck.isAvailable ? 'Available for Service (ON)' : 'Go Online Now (OFF)'}
+            {currentTruck.isAvailable ? t('btnAvailableOn') : t('btnAvailableOff')}
           </button>
         </div>
       </div>
 
       {/* Main 2-Column Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left 2 Columns: Active Hauling Job / Incoming Request */}
         <div className="lg:col-span-2 space-y-6">
           {!hasBookingForThisTruck ? (
             <div className="bg-white rounded-2xl border-2 border-slate-200 p-10 text-center">
@@ -172,18 +175,15 @@ export default function DriverDashboard() {
               </div>
               <h3 className="text-xl font-extrabold text-slate-900">
                 {currentTruck.isAvailable
-                  ? 'Waiting for Farmer Hauling Requests...'
-                  : 'You Are Currently Offline'}
+                  ? t('waitingRequestsTitle')
+                  : t('currentlyOfflineTitle')}
               </h3>
               <p className="text-sm text-slate-500 max-w-md mx-auto mt-2">
-                {currentTruck.isAvailable
-                  ? 'Your truck is live on the farmer marketplace. Switch to Ordinary (Farmer) at the top and book this truck to see a live job appear here.'
-                  : 'Turn your availability switch ON above so farmers in your area can book your vehicle.'}
+                {currentTruck.isAvailable ? t('waitingRequestsSub') : t('currentlyOfflineSub')}
               </p>
             </div>
           ) : (
             <div className="bg-white rounded-2xl border-2 border-blue-500 shadow-md overflow-hidden">
-              {/* Job Banner */}
               <div
                 className={`px-6 py-4 text-white flex items-center justify-between ${
                   isPendingAcceptance
@@ -197,10 +197,10 @@ export default function DriverDashboard() {
                   <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
                   <span className="text-xs font-extrabold uppercase tracking-wider">
                     {isPendingAcceptance
-                      ? 'NEW FARMER BOOKING REQUEST'
+                      ? t('newBookingBanner')
                       : isDelivered
-                      ? 'TRIP COMPLETED'
-                      : `ACTIVE JOB • ${currentStage.label.toUpperCase()}`}
+                      ? t('tripCompletedBanner')
+                      : t('activeJobBanner', { stage: t(currentStage.labelKey).toUpperCase() })}
                   </span>
                 </div>
                 <span className="text-xs font-mono opacity-80">#{activeBooking.id}</span>
@@ -213,10 +213,10 @@ export default function DriverDashboard() {
                     <MapPin className="w-5 h-5 text-emerald-600 mt-0.5 shrink-0" />
                     <div>
                       <span className="text-xs font-bold uppercase text-slate-400 block">
-                        Pickup at Farm
+                        {t('pickupAtFarmLabel')}
                       </span>
                       <span className="text-base font-extrabold text-slate-900">
-                        {activeBooking.pickup}
+                        {getLocalizedText(activeBooking.pickup, language)}
                       </span>
                     </div>
                   </div>
@@ -227,31 +227,36 @@ export default function DriverDashboard() {
                     <Navigation className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
                     <div>
                       <span className="text-xs font-bold uppercase text-slate-400 block">
-                        Drop-off Destination
+                        {t('dropoffDestLabel')}
                       </span>
                       <span className="text-base font-extrabold text-slate-900">
-                        {activeBooking.destination}
+                        {getLocalizedText(activeBooking.destination, language)}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Cargo, Farmer & Payout Summary */}
+                {/* Cargo, Farmer & Payout */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl border border-slate-200">
                     <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
-                      <Package className="w-3.5 h-3.5" /> Cargo Load
+                      <Package className="w-3.5 h-3.5" /> {t('cargoLoadLabel')}
                     </span>
                     <p className="text-base font-extrabold text-slate-900 mt-1">
-                      {activeBooking.cropType}
+                      {getLocalizedText(activeBooking.cropType, language)}
                     </p>
                     <p className="text-xs font-semibold text-slate-600">
-                      {Math.round(activeBooking.weightKg / 50)} Sacks ({activeBooking.weightKg} kg)
+                      {t('sacksUnit', {
+                        count: Math.round(activeBooking.weightKg / KG_PER_SACK),
+                      })}{' '}
+                      ({activeBooking.weightKg} kg)
                     </p>
                   </div>
 
                   <div className="p-4 rounded-xl border border-slate-200">
-                    <span className="text-xs font-bold text-slate-400">Farmer Contact</span>
+                    <span className="text-xs font-bold text-slate-400">
+                      {t('farmerContactLabel')}
+                    </span>
                     <p className="text-base font-extrabold text-slate-900 mt-1">
                       {activeBooking.farmerName}
                     </p>
@@ -264,12 +269,12 @@ export default function DriverDashboard() {
                   </div>
 
                   <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                    <span className="text-xs font-bold text-emerald-800">Your Trip Payout</span>
+                    <span className="text-xs font-bold text-emerald-800">{t('yourTripPayout')}</span>
                     <p className="text-2xl font-extrabold text-emerald-700 mt-1">
                       ₱{activeBooking.totalFare.toLocaleString()}
                     </p>
                     <p className="text-[11px] font-semibold text-emerald-700">
-                      100% Direct Cash / GCash
+                      {t('directCashNote')}
                     </p>
                   </div>
                 </div>
@@ -290,13 +295,13 @@ export default function DriverDashboard() {
                             : 'text-slate-500'
                         }`}
                       >
-                        {stage.label}
+                        {t(stage.labelKey)}
                       </span>
                     </div>
                   ))}
                 </div>
 
-                {/* Primary Driver Controls */}
+                {/* Driver Controls */}
                 {isPendingAcceptance ? (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                     <button
@@ -304,14 +309,14 @@ export default function DriverDashboard() {
                       className="py-3.5 px-4 rounded-xl border-2 border-slate-300 hover:bg-slate-100 text-slate-700 font-extrabold text-sm flex items-center justify-center gap-2 cursor-pointer transition"
                     >
                       <XCircle className="w-5 h-5 text-red-500" />
-                      Decline
+                      {t('btnDecline')}
                     </button>
                     <button
                       onClick={advanceTripStage}
                       className="sm:col-span-2 py-3.5 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-base flex items-center justify-center gap-2 shadow-sm cursor-pointer transition"
                     >
                       <CheckCircle2 className="w-5 h-5" />
-                      Accept Hauling Job
+                      {t(currentStage.driverBtnKey)}
                     </button>
                   </div>
                 ) : !isDelivered ? (
@@ -319,7 +324,7 @@ export default function DriverDashboard() {
                     onClick={advanceTripStage}
                     className="w-full py-4 px-6 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-base flex items-center justify-center gap-2 shadow-sm cursor-pointer transition"
                   >
-                    <span>{currentStage.driverAction}</span>
+                    <span>{t(currentStage.driverBtnKey)}</span>
                     <ArrowRight className="w-5 h-5" />
                   </button>
                 ) : (
@@ -328,7 +333,7 @@ export default function DriverDashboard() {
                     className="w-full py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-base flex items-center justify-center gap-2 cursor-pointer transition"
                   >
                     <CheckCircle2 className="w-5 h-5" />
-                    Done — Ready for Next Farmer
+                    {t('btnDoneNextFarmer')}
                   </button>
                 )}
               </div>
@@ -336,17 +341,14 @@ export default function DriverDashboard() {
           )}
         </div>
 
-        {/* Right Column: Standby Location & Earnings Summary */}
+        {/* Right Column: Standby Location & Earnings */}
         <div className="space-y-6">
-          {/* Update Parked Location */}
           <div className="bg-white rounded-2xl border-2 border-slate-200 p-5 shadow-2xs">
             <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2 mb-1">
               <MapPin className="w-5 h-5 text-blue-600" />
-              Current Standby Area
+              {t('standbyAreaTitle')}
             </h3>
-            <p className="text-xs text-slate-500 mb-3">
-              Shown to nearby farmers looking for a truck
-            </p>
+            <p className="text-xs text-slate-500 mb-3">{t('standbyAreaSub')}</p>
 
             <input
               type="text"
@@ -373,22 +375,25 @@ export default function DriverDashboard() {
             </div>
           </div>
 
-          {/* Driver Performance & Wallet Card */}
           <div className="bg-white rounded-2xl border-2 border-slate-200 p-5 shadow-2xs space-y-4">
             <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
               <Wallet className="w-5 h-5 text-emerald-600" />
-              Driver Summary
+              {t('driverSummaryTitle')}
             </h3>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-xs font-bold text-slate-400 block">Total Earnings</span>
+                <span className="text-xs font-bold text-slate-400 block">
+                  {t('totalEarningsLabel')}
+                </span>
                 <span className="text-lg font-extrabold text-slate-900">
                   ₱{currentTruck.totalEarnings.toLocaleString()}
                 </span>
               </div>
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="text-xs font-bold text-slate-400 block">Completed Trips</span>
+                <span className="text-xs font-bold text-slate-400 block">
+                  {t('completedTripsLabel')}
+                </span>
                 <span className="text-lg font-extrabold text-slate-900">
                   {currentTruck.tripsCompleted}
                 </span>
@@ -396,7 +401,7 @@ export default function DriverDashboard() {
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-sm">
-              <span className="text-slate-500 font-medium">Farmer Rating</span>
+              <span className="text-slate-500 font-medium">{t('farmerRatingLabel')}</span>
               <span className="font-extrabold text-amber-600 flex items-center gap-1">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                 {currentTruck.rating} / 5.0

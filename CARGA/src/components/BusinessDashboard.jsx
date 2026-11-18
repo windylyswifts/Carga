@@ -15,32 +15,45 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useLogistics, KG_PER_SACK } from '../context/LogisticsContext';
+import { getLocalizedText } from '../utils/translations';
 
-const CATEGORIES = ['All', 'Fruits', 'Vegetables', 'Grains & Corn', 'Root Crops'];
+const CATEGORY_KEYS = ['catAll', 'catFruits', 'catVegetables', 'catGrains', 'catRootCrops'];
 
 export default function BusinessDashboard() {
-  const { cropListings, procurementOrders, reserveCropSupply, setActiveRole } = useLogistics();
+  const { language, t, cropListings, procurementOrders, reserveCropSupply } = useLogistics();
 
   const [activeTab, setActiveTab] = useState('marketplace'); // 'marketplace' | 'orders'
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategoryKey, setSelectedCategoryKey] = useState('catAll');
   const [businessName, setBusinessName] = useState('Caraga Fresh Mart & Trading');
 
   // Reservation Modal State
   const [selectedListing, setSelectedListing] = useState(null);
   const [sacksToReserve, setSacksToReserve] = useState(5);
-  const [fulfillmentMethod, setFulfillmentMethod] = useState('Farmer Delivers via AgriHaul');
+  const [fulfillmentKey, setFulfillmentKey] = useState('optAgriHaul');
   const [orderConfirmation, setOrderConfirmation] = useState(null);
 
   const availableListings = cropListings.filter((item) => item.quantityKg > 0);
   const totalAvailableKg = availableListings.reduce((sum, item) => sum + item.quantityKg, 0);
 
+  // Searches across English, Tagalog, and Cebuano fields simultaneously
   const filteredListings = cropListings.filter((item) => {
+    const q = searchQuery.toLowerCase();
+    const allCropNames =
+      typeof item.cropName === 'object'
+        ? Object.values(item.cropName).join(' ').toLowerCase()
+        : String(item.cropName).toLowerCase();
+    const allOrigins =
+      typeof item.origin === 'object'
+        ? Object.values(item.origin).join(' ').toLowerCase()
+        : String(item.origin).toLowerCase();
+
     const matchesSearch =
-      item.cropName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.origin.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.farmerName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+      allCropNames.includes(q) ||
+      allOrigins.includes(q) ||
+      item.farmerName.toLowerCase().includes(q);
+    const matchesCategory =
+      selectedCategoryKey === 'catAll' || item.categoryKey === selectedCategoryKey;
     return matchesSearch && matchesCategory;
   });
 
@@ -58,7 +71,7 @@ export default function BusinessDashboard() {
       listingId: selectedListing.id,
       businessName,
       sacksRequested: sacksToReserve,
-      fulfillmentMethod,
+      fulfillmentKey,
     });
 
     setOrderConfirmation({
@@ -72,18 +85,16 @@ export default function BusinessDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      {/* Header & Business Identity */}
+      {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
         <div>
           <span className="inline-block text-xs font-bold uppercase tracking-wider text-indigo-800 bg-indigo-100 px-3 py-1 rounded-full">
-            Business Portal • Direct Procurement
+            {t('businessBadge')}
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">
-            Available Farm Resources
+            {t('businessTitle')}
           </h1>
-          <p className="text-sm text-slate-600 mt-0.5">
-            Source fresh harvests directly from local farmers at transparent farm-gate prices.
-          </p>
+          <p className="text-sm text-slate-600 mt-0.5">{t('businessSub')}</p>
         </div>
 
         {/* Navigation Tabs */}
@@ -96,7 +107,7 @@ export default function BusinessDashboard() {
                 : 'text-slate-700 hover:bg-slate-300/60'
             }`}
           >
-            Available Crops ({availableListings.length})
+            {t('tabAvailableCrops', { count: availableListings.length })}
           </button>
           <button
             onClick={() => setActiveTab('orders')}
@@ -106,32 +117,34 @@ export default function BusinessDashboard() {
                 : 'text-slate-700 hover:bg-slate-300/60'
             }`}
           >
-            Reserved Orders ({procurementOrders.length})
+            {t('tabReservedOrders', { count: procurementOrders.length })}
           </button>
         </div>
       </div>
 
-      {/* Live Toast Notification after Reservation */}
+      {/* Live Reservation Toast */}
       {orderConfirmation && (
         <div className="mb-6 bg-emerald-900 text-white rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
           <div className="flex items-center gap-3">
             <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
             <p className="text-sm">
-              Reserved <strong>{orderConfirmation.sacks} sacks</strong> of{' '}
-              <strong>{orderConfirmation.cropName}</strong> from{' '}
-              <strong>{orderConfirmation.farmerName}</strong>! Inventory updated live.
+              {t('reservedToast', {
+                sacks: orderConfirmation.sacks,
+                crop: getLocalizedText(orderConfirmation.cropName, language),
+                farmer: orderConfirmation.farmerName,
+              })}
             </p>
           </div>
           <button
             onClick={() => setActiveTab('orders')}
             className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs shrink-0 cursor-pointer"
           >
-            View Order
+            {t('viewOrderBtn')}
           </button>
         </div>
       )}
 
-      {/* Executive KPI Summary Strip */}
+      {/* KPI Summary Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-2xl border border-slate-200 p-5 flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
@@ -139,13 +152,13 @@ export default function BusinessDashboard() {
           </div>
           <div>
             <span className="text-xs font-bold uppercase text-slate-400 block">
-              Total Available Supply
+              {t('kpiTotalSupply')}
             </span>
             <span className="text-2xl font-extrabold text-slate-900">
               {totalAvailableKg.toLocaleString()} kg
             </span>
             <span className="text-xs text-slate-500 block">
-              ({Math.round(totalAvailableKg / KG_PER_SACK)} sacks ready today)
+              {t('kpiSacksReady', { sacks: Math.round(totalAvailableKg / KG_PER_SACK) })}
             </span>
           </div>
         </div>
@@ -156,13 +169,13 @@ export default function BusinessDashboard() {
           </div>
           <div>
             <span className="text-xs font-bold uppercase text-slate-400 block">
-              Active Farm Listings
+              {t('kpiActiveListings')}
             </span>
             <span className="text-2xl font-extrabold text-slate-900">
-              {availableListings.length} Farms
+              {t('kpiFarmsCount', { count: availableListings.length })}
             </span>
             <span className="text-xs text-emerald-700 font-semibold block">
-              0% middleman markup
+              {t('kpiZeroMarkup')}
             </span>
           </div>
         </div>
@@ -173,12 +186,12 @@ export default function BusinessDashboard() {
           </div>
           <div>
             <span className="text-xs font-bold uppercase text-slate-400 block">
-              Your Reservations
+              {t('kpiYourReservations')}
             </span>
             <span className="text-2xl font-extrabold text-slate-900">
-              {procurementOrders.length} Orders
+              {t('kpiOrdersCount', { count: procurementOrders.length })}
             </span>
-            <span className="text-xs text-slate-500 block">Direct farm-to-business</span>
+            <span className="text-xs text-slate-500 block">{t('kpiDirectFarm')}</span>
           </div>
         </div>
       </div>
@@ -186,7 +199,6 @@ export default function BusinessDashboard() {
       {/* TAB 1: AVAILABLE FARM RESOURCES FEED */}
       {activeTab === 'marketplace' && (
         <div className="space-y-6">
-          {/* Search & Category Filter Bar */}
           <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -194,42 +206,32 @@ export default function BusinessDashboard() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search crop, farm location, or farmer..."
+                placeholder={t('searchPlaceholder')}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-indigo-600"
               />
             </div>
 
             <div className="flex flex-wrap gap-1.5">
-              {CATEGORIES.map((category) => (
+              {CATEGORY_KEYS.map((catKey) => (
                 <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
+                  key={catKey}
+                  onClick={() => setSelectedCategoryKey(catKey)}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    selectedCategory === category
+                    selectedCategoryKey === catKey
                       ? 'bg-slate-900 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
-                  {category}
+                  {t(catKey)}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Crop Listings Grid */}
           {filteredListings.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
-              <p className="text-lg font-bold text-slate-800">No matching crops found</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Try clearing your search filter or post a new harvest in the{' '}
-                <button
-                  onClick={() => setActiveRole('ordinary')}
-                  className="text-indigo-600 font-bold underline cursor-pointer"
-                >
-                  Ordinary (Farmer)
-                </button>{' '}
-                tab.
-              </p>
+              <p className="text-lg font-bold text-slate-800">{t('noMatchingCrops')}</p>
+              <p className="text-sm text-slate-500 mt-1">{t('noMatchingSub')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -255,47 +257,58 @@ export default function BusinessDashboard() {
                               : 'bg-emerald-100 text-emerald-800'
                           }`}
                         >
-                          {item.status}
+                          {isSoldOut ? t('statusSoldOut') : t('statusReady')}
                         </span>
                         <span className="text-xs font-semibold text-slate-500">
-                          {item.category}
+                          {t(item.categoryKey)}
                         </span>
                       </div>
 
                       <h3 className="text-xl font-extrabold text-slate-900 mt-3">
-                        {item.cropName}
+                        {getLocalizedText(item.cropName, language)}
                       </h3>
                       <p className="text-sm font-medium text-slate-600 mt-0.5">
-                        Producer: <span className="font-bold text-slate-900">{item.farmerName}</span>
+                        {t('producerLabel')}{' '}
+                        <span className="font-bold text-slate-900">{item.farmerName}</span>
                       </p>
 
                       <div className="mt-4 p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-2 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500 flex items-center gap-1">
-                            <Package className="w-3.5 h-3.5 text-slate-400" /> Available Volume:
+                            <Package className="w-3.5 h-3.5 text-slate-400" />{' '}
+                            {t('availableVolumeLabel')}
                           </span>
                           <span className="font-extrabold text-slate-900">
-                            {availableSacks} Sacks ({item.quantityKg.toLocaleString()} kg)
+                            {t('sacksUnit', { count: availableSacks })} (
+                            {item.quantityKg.toLocaleString()} kg)
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500 flex items-center gap-1">
-                            <MapPin className="w-3.5 h-3.5 text-slate-400" /> Farm Origin:
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />{' '}
+                            {t('farmOriginLabel')}
                           </span>
-                          <span className="font-semibold text-slate-800">{item.origin}</span>
+                          <span className="font-semibold text-slate-800">
+                            {getLocalizedText(item.origin, language)}
+                          </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500 flex items-center gap-1">
-                            <Sparkles className="w-3.5 h-3.5 text-slate-400" /> Freshness:
+                            <Sparkles className="w-3.5 h-3.5 text-slate-400" />{' '}
+                            {t('freshnessLabel')}
                           </span>
-                          <span className="font-semibold text-emerald-700">{item.harvestDate}</span>
+                          <span className="font-semibold text-emerald-700">
+                            {getLocalizedText(item.harvestDate, language)}
+                          </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="mt-5 pt-4 border-t border-slate-100">
                       <div className="flex items-baseline justify-between mb-3">
-                        <span className="text-xs font-semibold text-slate-500">Farm-Gate Price</span>
+                        <span className="text-xs font-semibold text-slate-500">
+                          {t('farmGatePriceLabel')}
+                        </span>
                         <div>
                           <span className="text-2xl font-extrabold text-slate-900">
                             ₱{item.pricePerKg}
@@ -314,7 +327,7 @@ export default function BusinessDashboard() {
                         }`}
                       >
                         <ShoppingBag className="w-4 h-4" />
-                        {isSoldOut ? 'Fully Reserved' : 'Reserve Supply'}
+                        {isSoldOut ? t('btnFullyReserved') : t('btnReserveSupply')}
                       </button>
                     </div>
                   </div>
@@ -331,10 +344,8 @@ export default function BusinessDashboard() {
           {procurementOrders.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
               <ShoppingBag className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <p className="text-lg font-bold text-slate-800">No reserved orders yet</p>
-              <p className="text-sm text-slate-500 mt-1">
-                Go to <strong>Available Crops</strong> and reserve produce from a local farm.
-              </p>
+              <p className="text-lg font-bold text-slate-800">{t('noOrdersTitle')}</p>
+              <p className="text-sm text-slate-500 mt-1">{t('noOrdersSub')}</p>
             </div>
           ) : (
             procurementOrders.map((order) => (
@@ -348,27 +359,29 @@ export default function BusinessDashboard() {
                       {order.id}
                     </span>
                     <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
-                      Confirmed Reservation • {order.createdAt}
+                      {t('confirmedOrderBadge', { time: order.createdAt })}
                     </span>
                   </div>
                   <h3 className="text-lg font-extrabold text-slate-900">
-                    {order.cropName} — {order.reservedSacks} Sacks ({order.reservedKg} kg)
+                    {getLocalizedText(order.cropName, language)} —{' '}
+                    {t('sacksUnit', { count: order.reservedSacks })} ({order.reservedKg} kg)
                   </h3>
                   <p className="text-xs text-slate-600">
-                    Supplier: <strong>{order.farmerName}</strong> ({order.origin}) •{' '}
+                    {t('supplierLabel')} <strong>{order.farmerName}</strong> (
+                    {getLocalizedText(order.origin, language)}) •{' '}
                     <span className="inline-flex items-center gap-1 text-indigo-700 font-semibold">
                       <Phone className="w-3 h-3" /> {order.farmerPhone}
                     </span>
                   </p>
                   <p className="text-xs text-slate-500 flex items-center gap-1">
-                    <Truck className="w-3.5 h-3.5 text-slate-400" /> Logistics:{' '}
-                    {order.fulfillmentMethod}
+                    <Truck className="w-3.5 h-3.5 text-slate-400" /> {t('logisticsLabel')}{' '}
+                    {t(order.fulfillmentKey)}
                   </p>
                 </div>
 
                 <div className="text-left md:text-right border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
                   <span className="text-xs text-slate-500 block">
-                    ₱{order.pricePerKg}/kg direct farm-gate
+                    {t('directFarmGateRate', { price: order.pricePerKg })}
                   </span>
                   <span className="text-2xl font-extrabold text-indigo-700">
                     ₱{order.totalAmount.toLocaleString()}
@@ -387,13 +400,16 @@ export default function BusinessDashboard() {
             <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-4">
               <div>
                 <span className="text-xs font-bold uppercase text-indigo-700">
-                  Direct Farm Reservation
+                  {t('modalHeaderTag')}
                 </span>
                 <h3 className="text-xl font-extrabold text-slate-900 mt-0.5">
-                  {selectedListing.cropName}
+                  {getLocalizedText(selectedListing.cropName, language)}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  From {selectedListing.farmerName} ({selectedListing.origin})
+                  {t('modalFromFarm', {
+                    farmer: selectedListing.farmerName,
+                    origin: getLocalizedText(selectedListing.origin, language),
+                  })}
                 </p>
               </div>
               <button
@@ -407,7 +423,7 @@ export default function BusinessDashboard() {
             <form onSubmit={handleConfirmReservation} className="mt-5 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Your Business / Company Name
+                  {t('modalBusinessName')}
                 </label>
                 <input
                   type="text"
@@ -420,8 +436,9 @@ export default function BusinessDashboard() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Quantity to Reserve (Max {Math.floor(selectedListing.quantityKg / KG_PER_SACK)}{' '}
-                  Sacks)
+                  {t('modalQtyLabel', {
+                    max: Math.floor(selectedListing.quantityKg / KG_PER_SACK),
+                  })}
                 </label>
                 <div className="flex items-center gap-3">
                   <button
@@ -433,10 +450,10 @@ export default function BusinessDashboard() {
                   </button>
                   <div className="flex-1 text-center bg-slate-50 border border-slate-200 rounded-xl py-2">
                     <span className="text-lg font-extrabold text-slate-900 block leading-none">
-                      {sacksToReserve} Sacks
+                      {t('sacksUnit', { count: sacksToReserve })}
                     </span>
                     <span className="text-xs text-slate-500">
-                      {sacksToReserve * KG_PER_SACK} kg total
+                      {sacksToReserve * KG_PER_SACK} kg
                     </span>
                   </div>
                   <button
@@ -455,22 +472,22 @@ export default function BusinessDashboard() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Transport Arrangement
+                  {t('modalTransportLabel')}
                 </label>
                 <select
-                  value={fulfillmentMethod}
-                  onChange={(e) => setFulfillmentMethod(e.target.value)}
+                  value={fulfillmentKey}
+                  onChange={(e) => setFulfillmentKey(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-medium"
                 >
-                  <option>Farmer Delivers via AgriHaul</option>
-                  <option>Business Pick-up at Farm Gate</option>
+                  <option value="optAgriHaul">{t('optAgriHaul')}</option>
+                  <option value="optBusinessPickup">{t('optBusinessPickup')}</option>
                 </select>
               </div>
 
               <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-indigo-900 block">
-                    Total Farm-Gate Payout
+                    {t('modalTotalPayout')}
                   </span>
                   <span className="text-[11px] text-indigo-700">
                     {sacksToReserve * KG_PER_SACK} kg × ₱{selectedListing.pricePerKg}/kg
@@ -485,7 +502,7 @@ export default function BusinessDashboard() {
                 type="submit"
                 className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-sm transition cursor-pointer shadow-sm"
               >
-                Confirm Harvest Reservation
+                {t('btnConfirmReservation')}
               </button>
             </form>
           </div>
