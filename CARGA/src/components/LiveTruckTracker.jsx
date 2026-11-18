@@ -29,6 +29,7 @@ export default function LiveTruckTracker() {
   } = activeBooking;
 
   const currentStage = TRIP_STAGES[stageIndex];
+  const isWaitingForDriver = stageIndex === 0;
   const isDelivered = stageIndex === TRIP_STAGES.length - 1;
   const remainingMinutes = Math.max(
     0,
@@ -45,13 +46,27 @@ export default function LiveTruckTracker() {
       {/* Top Status Banner */}
       <div className="bg-slate-900 text-white px-5 py-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-            {isDelivered ? 'DELIVERED' : 'LIVE TRUCK MAP'}
+          <span
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold border ${
+              isWaitingForDriver
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+            }`}
+          >
+            <span
+              className={`w-2.5 h-2.5 rounded-full animate-ping ${
+                isWaitingForDriver ? 'bg-amber-400' : 'bg-emerald-400'
+              }`}
+            />
+            {isWaitingForDriver
+              ? 'WAITING FOR DRIVER'
+              : isDelivered
+              ? 'DELIVERED'
+              : 'LIVE TRUCK MAP'}
           </span>
         </div>
 
-        {/* Pitch Demo Helper Button */}
+        {/* Quick Demo Button (Also controllable from Driver / Lender tab) */}
         <div>
           {!isDelivered ? (
             <button
@@ -59,7 +74,7 @@ export default function LiveTruckTracker() {
               className="flex items-center gap-1.5 text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold px-3.5 py-2 rounded-xl transition cursor-pointer"
             >
               <FastForward className="w-4 h-4" />
-              Next Trip Step (Demo)
+              {isWaitingForDriver ? 'Simulate Driver Accept' : 'Next Trip Step (Demo)'}
             </button>
           ) : (
             <button

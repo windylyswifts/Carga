@@ -39,9 +39,6 @@ export default function RoleSwitcher() {
             <span className="font-bold tracking-tight text-lg block leading-none">
               CARGA<span className="text-emerald-400">.</span>
             </span>
-            <span className="text-[11px] text-slate-400 uppercase tracking-wider">
-              Pitch Prototype
-            </span>
           </div>
         </div>
 

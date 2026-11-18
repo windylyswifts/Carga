@@ -14,6 +14,7 @@ const INITIAL_TRUCKS = [
     ratePerKm: 45,
     rating: 4.9,
     tripsCompleted: 142,
+    totalEarnings: 48500,
     isAvailable: true,
     currentLocation: 'Ampayon Highway Junction',
   },
@@ -28,6 +29,7 @@ const INITIAL_TRUCKS = [
     ratePerKm: 25,
     rating: 4.8,
     tripsCompleted: 89,
+    totalEarnings: 24300,
     isAvailable: true,
     currentLocation: 'Libertad Public Terminal',
   },
@@ -42,6 +44,7 @@ const INITIAL_TRUCKS = [
     ratePerKm: 35,
     rating: 4.7,
     tripsCompleted: 64,
+    totalEarnings: 31200,
     isAvailable: true,
     currentLocation: 'Baan Viaduct Crossing',
   },
@@ -56,6 +59,7 @@ const INITIAL_TRUCKS = [
     ratePerKm: 55,
     rating: 4.9,
     tripsCompleted: 210,
+    totalEarnings: 79400,
     isAvailable: false,
     currentLocation: 'Buenavista Depot',
   },
@@ -74,19 +78,47 @@ const INITIAL_LISTINGS = [
 ];
 
 export const TRIP_STAGES = [
-  { id: 0, label: 'Confirmed', subtext: 'Driver accepted your booking', progress: 10 },
-  { id: 1, label: 'On the Way', subtext: 'Truck is driving to your farm', progress: 35 },
-  { id: 2, label: 'Loading', subtext: 'Loading your sacks onto the truck', progress: 55 },
-  { id: 3, label: 'Delivering', subtext: 'Truck is heading to the market', progress: 82 },
-  { id: 4, label: 'Arrived', subtext: 'Crops delivered safely!', progress: 100 },
+  {
+    id: 0,
+    label: 'Request Sent',
+    subtext: 'Waiting for driver to accept your trip',
+    driverAction: 'Accept Hauling Job',
+    progress: 5,
+  },
+  {
+    id: 1,
+    label: 'On the Way',
+    subtext: 'Driver accepted and is heading to your farm',
+    driverAction: 'Confirm Arrival at Farm',
+    progress: 35,
+  },
+  {
+    id: 2,
+    label: 'Loading',
+    subtext: 'Loading your sacks onto the truck at the farm',
+    driverAction: 'Finish Loading & Start Delivery',
+    progress: 55,
+  },
+  {
+    id: 3,
+    label: 'Delivering',
+    subtext: 'Truck is en route to the destination market',
+    driverAction: 'Confirm Drop-off & Complete Trip',
+    progress: 82,
+  },
+  {
+    id: 4,
+    label: 'Arrived',
+    subtext: 'Crops delivered safely at destination!',
+    driverAction: null,
+    progress: 100,
+  },
 ];
 
-// Automatically estimates route fare & travel duration from location names
-// so farmers never need to know or input distances.
 export function calculateRouteEstimate(pickup, destination, truck) {
   const combined = `${pickup.trim()}-${destination.trim()}`;
   const hash = combined.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const autoDistanceKm = 8 + (hash % 18); // Realistic 8–25 km local farm-to-market range
+  const autoDistanceKm = 8 + (hash % 18);
   const estimatedMinutes = Math.round(autoDistanceKm * 2.5);
   const totalFare = truck ? truck.baseFare + truck.ratePerKm * autoDistanceKm : 0;
 
@@ -99,9 +131,11 @@ export const LogisticsProvider = ({ children }) => {
   const [activeBooking, setActiveBooking] = useState(null);
   const [cropListings, setCropListings] = useState(INITIAL_LISTINGS);
 
-  // Smoothly animate truck movement along the visual route
+  // Smoothly animate truck movement along the visual route once accepted
   useEffect(() => {
-    if (!activeBooking || activeBooking.stageIndex >= TRIP_STAGES.length - 1) return;
+    if (!activeBooking || activeBooking.stageIndex === 0 || activeBooking.stageIndex >= TRIP_STAGES.length - 1) {
+      return;
+    }
 
     const timer = setInterval(() => {
       setActiveBooking((prev) => {
@@ -117,12 +151,30 @@ export const LogisticsProvider = ({ children }) => {
     return () => clearInterval(timer);
   }, [activeBooking]);
 
+  const toggleTruckAvailability = (truckId) => {
+    setTrucks((prev) =>
+      prev.map((truck) =>
+        truck.id === truckId ? { ...truck, isAvailable: !truck.isAvailable } : truck
+      )
+    );
+  };
+
+  const updateTruckLocation = (truckId, newLocation) => {
+    setTrucks((prev) =>
+      prev.map((truck) =>
+        truck.id === truckId ? { ...truck, currentLocation: newLocation } : truck
+      )
+    );
+  };
+
   const createBooking = ({ truck, pickup, destination, cropType, weightKg }) => {
     const { estimatedMinutes, totalFare } = calculateRouteEstimate(pickup, destination, truck);
 
-    const newBooking = {
+    setActiveBooking({
       id: `TRIP-${Math.floor(1000 + Math.random() * 9000)}`,
       truck,
+      farmerName: 'Juan Dela Cruz (Farmstead Coop)',
+      farmerPhone: '+63 919 304 5512',
       pickup,
       destination,
       cropType,
@@ -131,20 +183,39 @@ export const LogisticsProvider = ({ children }) => {
       totalFare,
       stageIndex: 0,
       liveProgress: 5,
-    };
-    setActiveBooking(newBooking);
+    });
   };
 
   const advanceTripStage = () => {
     setActiveBooking((prev) => {
       if (!prev || prev.stageIndex >= TRIP_STAGES.length - 1) return prev;
       const nextStage = prev.stageIndex + 1;
+
+      // Credit completed trip stats to the driver when delivered
+      if (nextStage === TRIP_STAGES.length - 1) {
+        setTrucks((currentTrucks) =>
+          currentTrucks.map((t) =>
+            t.id === prev.truck.id
+              ? {
+                  ...t,
+                  tripsCompleted: t.tripsCompleted + 1,
+                  totalEarnings: t.totalEarnings + prev.totalFare,
+                }
+              : t
+          )
+        );
+      }
+
       return {
         ...prev,
         stageIndex: nextStage,
         liveProgress: TRIP_STAGES[nextStage].progress,
       };
     });
+  };
+
+  const cancelBooking = () => {
+    setActiveBooking(null);
   };
 
   const completeAndClearBooking = () => {
@@ -169,10 +240,12 @@ export const LogisticsProvider = ({ children }) => {
         activeRole,
         setActiveRole,
         trucks,
-        setTrucks,
+        toggleTruckAvailability,
+        updateTruckLocation,
         activeBooking,
         createBooking,
         advanceTripStage,
+        cancelBooking,
         completeAndClearBooking,
         cropListings,
         addCropListing,
