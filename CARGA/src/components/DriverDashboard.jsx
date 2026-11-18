@@ -14,7 +14,7 @@ import {
   Clock,
   AlertCircle,
 } from 'lucide-react';
-import { useLogistics, TRIP_STAGES, KG_PER_SACK } from '../context/LogisticsContext';
+import { useLogistics, TRIP_STAGES } from '../context/LogisticsContext';
 import { getLocalizedText } from '../utils/translations';
 
 const STANDBY_SPOTS = [
@@ -136,10 +136,7 @@ export default function DriverDashboard() {
                 }`}
               >
                 {currentTruck.vehicleModel} •{' '}
-                {t('maxSacksLine', {
-                  max: Math.floor(currentTruck.capacityKg / KG_PER_SACK),
-                  kg: currentTruck.capacityKg.toLocaleString(),
-                })}
+                {t('maxCapacityLine', { kg: currentTruck.capacityKg.toLocaleString() })}
               </p>
               <p
                 className={`text-xs mt-2 font-semibold ${
@@ -246,10 +243,8 @@ export default function DriverDashboard() {
                       {getLocalizedText(activeBooking.cropType, language)}
                     </p>
                     <p className="text-xs font-semibold text-slate-600">
-                      {t('sacksUnit', {
-                        count: Math.round(activeBooking.weightKg / KG_PER_SACK),
-                      })}{' '}
-                      ({activeBooking.weightKg} kg)
+                      {t('sacksUnit', { count: activeBooking.sackCount })} (
+                      {activeBooking.weightKg.toLocaleString()} kg)
                     </p>
                   </div>
 

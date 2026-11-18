@@ -9,7 +9,7 @@ import {
   FastForward,
   RotateCcw,
 } from 'lucide-react';
-import { useLogistics, TRIP_STAGES, KG_PER_SACK } from '../context/LogisticsContext';
+import { useLogistics, TRIP_STAGES } from '../context/LogisticsContext';
 import { getLocalizedText } from '../utils/translations';
 
 export default function LiveTruckTracker() {
@@ -22,6 +22,7 @@ export default function LiveTruckTracker() {
     pickup,
     destination,
     cropType,
+    sackCount,
     weightKg,
     estimatedMinutes,
     totalFare,
@@ -274,7 +275,7 @@ export default function LiveTruckTracker() {
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">{t('totalLoadColon')}</span>
                 <span className="font-bold text-slate-900">
-                  {t('sacksUnit', { count: Math.round(weightKg / KG_PER_SACK) })} ({weightKg} kg)
+                  {t('sacksUnit', { count: sackCount })} ({weightKg.toLocaleString()} kg)
                 </span>
               </div>
             </div>

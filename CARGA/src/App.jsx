@@ -3,7 +3,6 @@ import { LogisticsProvider, useLogistics } from './context/LogisticsContext';
 import RoleSwitcher from './components/RoleSwitcher';
 import OrdinaryDashboard from './components/OrdinaryDashboard';
 import DriverDashboard from './components/DriverDashboard';
-import BusinessDashboard from './components/BusinessDashboard';
 
 function MainWorkspace() {
   const { activeRole } = useLogistics();
@@ -14,7 +13,6 @@ function MainWorkspace() {
 
       {activeRole === 'ordinary' && <OrdinaryDashboard />}
       {activeRole === 'driver' && <DriverDashboard />}
-      {activeRole === 'business' && <BusinessDashboard />}
     </div>
   );
 }
