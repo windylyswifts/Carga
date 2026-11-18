@@ -188,9 +188,10 @@ export const LogisticsProvider = ({ children }) => {
   const [language, setLanguage] = useState('en');
   const [activeRole, setActiveRole] = useState('ordinary');
 
-  // Shared Farmer Navigation State (so top navbar logo can always return to Home)
+  // Shared Farmer Navigation State
   const [farmerTab, setFarmerTab] = useState('home');
   const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
+  const [isLiveTrackerOpen, setIsLiveTrackerOpen] = useState(false);
 
   const [trucks, setTrucks] = useState(INITIAL_TRUCKS);
   const [activeBooking, setActiveBooking] = useState(null);
@@ -209,6 +210,7 @@ export const LogisticsProvider = ({ children }) => {
     setActiveRole('ordinary');
     setFarmerTab('home');
     setIsBookingFormOpen(false);
+    setIsLiveTrackerOpen(false);
   };
 
   const t = (key, params = {}) => {
@@ -415,6 +417,10 @@ export const LogisticsProvider = ({ children }) => {
       liveProgress: 5,
     });
 
+    setIsBookingFormOpen(false);
+    setFarmerTab('home');
+    setIsLiveTrackerOpen(true);
+
     pushActivityLog({
       type: 'trip',
       refId: bookingId,
@@ -487,11 +493,13 @@ export const LogisticsProvider = ({ children }) => {
       });
     }
     setActiveBooking(null);
+    setIsLiveTrackerOpen(false);
   };
 
   const completeAndClearBooking = () => {
     setActiveBooking(null);
     setTransportPermit(null);
+    setIsLiveTrackerOpen(false);
   };
 
   return (
@@ -506,6 +514,8 @@ export const LogisticsProvider = ({ children }) => {
         setFarmerTab,
         isBookingFormOpen,
         setIsBookingFormOpen,
+        isLiveTrackerOpen,
+        setIsLiveTrackerOpen,
         navigateToFarmerHome,
         trucks,
         toggleTruckAvailability,

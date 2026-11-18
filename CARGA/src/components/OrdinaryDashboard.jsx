@@ -22,8 +22,13 @@ import {
   Phone,
   Building2,
   Check,
+  Navigation,
 } from 'lucide-react';
-import { useLogistics, evaluatePermitRequirement } from '../context/LogisticsContext';
+import {
+  useLogistics,
+  evaluatePermitRequirement,
+  TRIP_STAGES,
+} from '../context/LogisticsContext';
 import { LANGUAGES } from '../utils/translations';
 import LiveTruckTracker from './LiveTruckTracker';
 import PermitFormModal from './PermitFormModal';
@@ -39,6 +44,9 @@ export default function OrdinaryDashboard() {
     setFarmerTab,
     isBookingFormOpen,
     setIsBookingFormOpen,
+    isLiveTrackerOpen,
+    setIsLiveTrackerOpen,
+    navigateToFarmerHome,
     trucks,
     activeBooking,
     createBooking,
@@ -104,6 +112,7 @@ export default function OrdinaryDashboard() {
     setSelectedTruckId(null);
     setBookingOnHoldForPermit(false);
     setFarmerTab('home');
+    setIsLiveTrackerOpen(false);
     setIsBookingFormOpen(true);
   };
 
@@ -178,8 +187,6 @@ export default function OrdinaryDashboard() {
     setSelectedTruckId(null);
     setBookingOnHoldForPermit(false);
     setCurrentStep(1);
-    setIsBookingFormOpen(false);
-    setFarmerTab('home');
   };
 
   const handleSaveProfile = (e) => {
@@ -213,14 +220,44 @@ export default function OrdinaryDashboard() {
     { id: 'profile', label: t('navProfile'), icon: User },
   ];
 
+  const activeStageLabel = activeBooking
+    ? t(TRIP_STAGES[activeBooking.stageIndex]?.labelKey || 'stage0Label')
+    : '';
+
   return (
     <>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* =========================================================
             TAB 1A: FARMER HOME LANDING PAGE
            ========================================================= */}
-        {farmerTab === 'home' && !isBookingFormOpen && (
+        {farmerTab === 'home' && !isBookingFormOpen && !isLiveTrackerOpen && (
           <div key="farmer-home" className="space-y-6 animate-fade-slide">
+            {/* Compact Active Delivery Banner (Re-opens Live Truck Tracker) */}
+            {activeBooking && (
+              <button
+                type="button"
+                onClick={() => setIsLiveTrackerOpen(true)}
+                className="w-full rounded-2xl bg-slate-900 hover:bg-slate-800 text-white px-4 py-3.5 border border-emerald-500/50 shadow-sm flex items-center justify-between gap-3 text-left transition-all duration-150 cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-9 h-9 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center shrink-0">
+                    <Navigation className="w-4 h-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-extrabold text-emerald-300 truncate">
+                      {t('activeTripBannerLabel', { stage: activeStageLabel })}
+                    </p>
+                    <p className="text-xs text-slate-300 truncate mt-0.5">
+                      {t('activeTripBannerSub', { driver: activeBooking.truck.driverName })}
+                    </p>
+                  </div>
+                </div>
+                <span className="px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 text-xs font-extrabold shrink-0">
+                  {t('btnTrackLive')}
+                </span>
+              </button>
+            )}
+
             {/* Greeting Header */}
             <div>
               <span className="inline-block text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
@@ -232,16 +269,9 @@ export default function OrdinaryDashboard() {
               <p className="text-sm font-medium text-slate-500 mt-0.5">{t('farmerSubtitle')}</p>
             </div>
 
-            {/* Live Trip Tracker (Shown right on Home if a trip is active) */}
-            {activeBooking && (
-              <div className="animate-fade-slide">
-                <LiveTruckTracker />
-              </div>
-            )}
-
             {/* ROW 1: Two Equal-Width 3D Action Cards (Color-Psychology Paired) */}
             <div className="grid grid-cols-2 gap-3.5 sm:gap-5">
-              {/* Card 1: Book a Truck — Rich Emerald-Teal Gradient (Action & Harvest Growth) */}
+              {/* Card 1: Book a Truck — Rich Emerald-Teal Gradient */}
               <button
                 type="button"
                 onClick={handleOpenBookingForm}
@@ -258,7 +288,7 @@ export default function OrdinaryDashboard() {
                 </span>
               </button>
 
-              {/* Card 2: Transport Permit Inquiry — Deep Royal Navy + Warm Gold (Official Trust & Clearance) */}
+              {/* Card 2: Transport Permit Inquiry — Deep Royal Navy + Warm Gold */}
               <button
                 type="button"
                 onClick={handlePermitCardClick}
@@ -374,14 +404,34 @@ export default function OrdinaryDashboard() {
         )}
 
         {/* =========================================================
-            TAB 1B: 3-STEP TRUCK BOOKING WIZARD
+            TAB 1B: LIVE TRUCK TRACKER VIEW (With Back to Home)
+           ========================================================= */}
+        {farmerTab === 'home' && isLiveTrackerOpen && activeBooking && (
+          <div key="live-tracker-view" className="space-y-4 animate-fade-slide">
+            <div>
+              <button
+                type="button"
+                onClick={navigateToFarmerHome}
+                className="inline-flex items-center gap-1.5 text-sm font-extrabold text-slate-700 hover:text-emerald-700 bg-white border border-slate-300 px-3.5 py-2 rounded-xl transition-colors duration-150 cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>{t('btnBackToHome')}</span>
+              </button>
+            </div>
+
+            <LiveTruckTracker />
+          </div>
+        )}
+
+        {/* =========================================================
+            TAB 1C: 3-STEP TRUCK BOOKING WIZARD
            ========================================================= */}
         {farmerTab === 'home' && isBookingFormOpen && (
           <div key="booking-wizard" className="space-y-5 animate-fade-slide">
             <div className="flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => setIsBookingFormOpen(false)}
+                onClick={navigateToFarmerHome}
                 className="inline-flex items-center gap-1.5 text-sm font-extrabold text-slate-700 hover:text-emerald-700 bg-white border border-slate-300 px-3.5 py-2 rounded-xl transition-colors duration-150 cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -1032,9 +1082,12 @@ export default function OrdinaryDashboard() {
                 key={item.id}
                 type="button"
                 onClick={() => {
-                  setFarmerTab(item.id);
                   if (item.id === 'home') {
+                    navigateToFarmerHome();
+                  } else {
+                    setFarmerTab(item.id);
                     setIsBookingFormOpen(false);
+                    setIsLiveTrackerOpen(false);
                   }
                 }}
                 className={`relative py-2 px-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-150 cursor-pointer ${

@@ -25,6 +25,9 @@ export const UI_STRINGS = {
     cardPermitSub: 'Apply or view clearance',
     cardPermitApprovedSub: 'Cleared ({id}) • Tap to view',
     cardPermitPendingSub: 'On Hold ({id}) • Processing',
+    activeTripBannerLabel: 'Active Delivery • {stage}',
+    activeTripBannerSub: '{driver} • Tap to open live truck map',
+    btnTrackLive: 'Track Map',
     homeActivityTitle: 'Activity & Trip Log',
     homeActivitySub: 'Tap to view full booking and permit history',
     homeActivityViewAll: 'View All',
@@ -33,6 +36,7 @@ export const UI_STRINGS = {
     navNotifications: 'Alerts',
     navProfile: 'Profile',
     btnBackToHome: 'Back to Home',
+    permitActiveChip: 'Permit {id}',
 
     // History, Notifications & Profile Views
     historyTitle: 'Activity & Trip History',
@@ -217,6 +221,9 @@ export const UI_STRINGS = {
     cardPermitSub: 'Mag-apply o tingnan ang permit',
     cardPermitApprovedSub: 'Aprubado ({id}) • Pindutin',
     cardPermitPendingSub: 'Naka-hold ({id}) • Pinoproseso',
+    activeTripBannerLabel: 'Kasalukuyang Biyahe • {stage}',
+    activeTripBannerSub: '{driver} • Pindutin upang tingnan ang mapa',
+    btnTrackLive: 'Tingnan ang Mapa',
     homeActivityTitle: 'Talaan ng Aktibidad at Biyahe',
     homeActivitySub: 'Pindutin upang makita ang buong kasaysayan',
     homeActivityViewAll: 'Tingnan Lahat',
@@ -225,6 +232,7 @@ export const UI_STRINGS = {
     navNotifications: 'Abiso',
     navProfile: 'Profile',
     btnBackToHome: 'Bumalik sa Home',
+    permitActiveChip: 'Permit {id}',
 
     // History, Notifications & Profile Views
     historyTitle: 'Kasaysayan ng Aktibidad at Biyahe',
@@ -409,6 +417,9 @@ export const UI_STRINGS = {
     cardPermitSub: 'Pag-apply o tan-awa ang permit',
     cardPermitApprovedSub: 'Aprubado ({id}) • Pindota',
     cardPermitPendingSub: 'Naka-hold ({id}) • Giproseso',
+    activeTripBannerLabel: 'Aktibong Biyahe • {stage}',
+    activeTripBannerSub: '{driver} • Pindota aron makita ang mapa',
+    btnTrackLive: 'Tan-awa ang Mapa',
     homeActivityTitle: 'Talaan sa Aktibidad ug Biyahe',
     homeActivitySub: 'Pindota aron makita ang tibuok kasaysayan',
     homeActivityViewAll: 'Tan-awa Tanan',
@@ -417,6 +428,7 @@ export const UI_STRINGS = {
     navNotifications: 'Pahibalo',
     navProfile: 'Profile',
     btnBackToHome: 'Balik sa Home',
+    permitActiveChip: 'Permit {id}',
 
     // History, Notifications & Profile Views
     historyTitle: 'Kasaysayan sa Aktibidad ug Biyahe',
