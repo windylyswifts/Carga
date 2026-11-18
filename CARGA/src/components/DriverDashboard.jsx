@@ -13,9 +13,11 @@ import {
   ArrowRight,
   Clock,
   AlertCircle,
+  FileCheck2,
 } from 'lucide-react';
 import { useLogistics, TRIP_STAGES } from '../context/LogisticsContext';
 import { getLocalizedText } from '../utils/translations';
+import PermitSoftCopyModal from './PermitSoftCopyModal';
 
 const STANDBY_SPOTS = [
   'Ampayon Highway Junction',
@@ -38,6 +40,7 @@ export default function DriverDashboard() {
   } = useLogistics();
 
   const [selectedTruckId, setSelectedTruckId] = useState(trucks[0].id);
+  const [isPermitViewerOpen, setIsPermitViewerOpen] = useState(false);
 
   const currentTruck = trucks.find((tr) => tr.id === selectedTruckId) || trucks[0];
   const hasBookingForThisTruck = activeBooking && activeBooking.truck.id === currentTruck.id;
@@ -204,6 +207,33 @@ export default function DriverDashboard() {
               </div>
 
               <div className="p-6 space-y-6">
+                {/* Official Soft Copy Permit Card (Shown whenever farmer attached a permit) */}
+                {activeBooking.permit && (
+                  <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <FileCheck2 className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-extrabold text-emerald-950">
+                          {t('driverPermitBannerTitle')} ({activeBooking.permit.id})
+                        </p>
+                        <p className="text-xs font-semibold text-emerald-800">
+                          {t('driverPermitBannerSub')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsPermitViewerOpen(true)}
+                      className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shrink-0 cursor-pointer transition"
+                    >
+                      {t('btnShowPermitSoftCopy')}
+                    </button>
+                  </div>
+                )}
+
                 {/* Route Card */}
                 <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-4">
                   <div className="flex items-start gap-3">
@@ -412,6 +442,13 @@ export default function DriverDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Driver Official Permit Soft Copy Modal */}
+      <PermitSoftCopyModal
+        permit={activeBooking?.permit}
+        isOpen={isPermitViewerOpen}
+        onClose={() => setIsPermitViewerOpen(false)}
+      />
     </div>
   );
 }

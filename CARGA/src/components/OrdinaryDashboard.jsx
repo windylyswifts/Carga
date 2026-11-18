@@ -9,12 +9,25 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronDown,
+  FileCheck2,
+  Clock,
+  ShieldCheck,
+  Route,
 } from 'lucide-react';
-import { useLogistics } from '../context/LogisticsContext';
+import { useLogistics, evaluatePermitRequirement } from '../context/LogisticsContext';
 import LiveTruckTracker from './LiveTruckTracker';
+import PermitFormModal from './PermitFormModal';
+import PermitSoftCopyModal from './PermitSoftCopyModal';
 
 export default function OrdinaryDashboard() {
-  const { t, trucks, activeBooking, createBooking } = useLogistics();
+  const {
+    t,
+    trucks,
+    activeBooking,
+    createBooking,
+    transportPermit,
+    approveTransportPermit,
+  } = useLogistics();
 
   // 3-Step Stepper State: 1 = Locations | 2 = Crop & Sacks | 3 = Capable Trucks
   const [currentStep, setCurrentStep] = useState(1);
@@ -22,25 +35,56 @@ export default function OrdinaryDashboard() {
   // Step 1 Inputs (clean inputs with zero extra wording underneath)
   const [pickup, setPickup] = useState('Brgy. Sumilihon Farm');
   const [destination, setDestination] = useState('Langihan Public Market');
+  const [isMainRoadOrIntercity, setIsMainRoadOrIntercity] = useState(false);
 
-  // Step 2 Inputs (Crop + 50kg / 25kg dropdown + Sack quantity)
+  // Step 2 Inputs
   const [cropType, setCropType] = useState('Bananas (Saba)');
-  const [sackWeightKg, setSackWeightKg] = useState(50); // 50 or 25
+  const [sackWeightKg, setSackWeightKg] = useState(50);
   const [sackCount, setSackCount] = useState(12);
 
   // Step 3 Selection
   const [selectedTruckId, setSelectedTruckId] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
 
+  // Permit Modal & Interception Hold State
+  const [isPermitModalOpen, setIsPermitModalOpen] = useState(false);
+  const [isSoftCopyOpen, setIsSoftCopyOpen] = useState(false);
+  const [bookingOnHoldForPermit, setBookingOnHoldForPermit] = useState(false);
+  const [permitTriggerInfo, setPermitTriggerInfo] = useState(null);
+
   const totalWeightKg = sackCount * sackWeightKg;
 
-  // Automatically filter trucks that are online AND capable of carrying the total crop weight
   const capableTrucks = trucks.filter(
     (truck) => truck.isAvailable && truck.capacityKg >= totalWeightKg
   );
 
   const canProceedStep1 = pickup.trim().length > 0 && destination.trim().length > 0;
   const canProceedStep2 = cropType.trim().length > 0 && sackCount >= 1;
+
+  // Step 2 -> Step 3 Transition with Weight (> 8,000 kg) & Main Road / City-to-City Validation
+  const handleStep2Next = () => {
+    const validation = evaluatePermitRequirement({
+      weightKg: totalWeightKg,
+      pickup,
+      destination,
+      isMainRoadOrIntercity,
+    });
+
+    if (validation.required && transportPermit?.status !== 'approved') {
+      setPermitTriggerInfo(validation);
+      setBookingOnHoldForPermit(true);
+
+      // If farmer has not submitted a permit yet, open the 5-attribute permit form immediately
+      if (!transportPermit) {
+        setIsPermitModalOpen(true);
+      }
+      return;
+    }
+
+    setBookingOnHoldForPermit(false);
+    setSelectedTruckId(null);
+    setCurrentStep(3);
+  };
 
   const handleConfirmTruck = async () => {
     const chosenTruck = capableTrucks.find((tr) => tr.id === selectedTruckId);
@@ -57,6 +101,7 @@ export default function OrdinaryDashboard() {
     });
     setIsConfirming(false);
     setSelectedTruckId(null);
+    setBookingOnHoldForPermit(false);
     setCurrentStep(1);
   };
 
@@ -66,16 +111,54 @@ export default function OrdinaryDashboard() {
     { num: 3, label: t('step3Short') },
   ];
 
+  const prefillPermitData = {
+    plantDetails: `${cropType} — ${sackCount} Sacks (${sackWeightKg} kg/sack)`,
+    plantSource: pickup,
+    weightInKilos: totalWeightKg,
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      {/* Header */}
-      <div className="mb-6">
-        <span className="inline-block text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
-          {t('farmerBadge')}
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">
-          {t('farmerTitle')}
-        </h1>
+      {/* Header + High-Contrast Color-Theory "Apply for Permit" Button */}
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <span className="inline-block text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
+            {t('farmerBadge')}
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">
+            {t('farmerTitle')}
+          </h1>
+        </div>
+
+        {/* High-Visibility Amber/Gold CTA against Emerald/Slate palette */}
+        <div className="flex items-center gap-2">
+          {transportPermit?.status === 'approved' ? (
+            <button
+              type="button"
+              onClick={() => setIsSoftCopyOpen(true)}
+              className="px-4 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition cursor-pointer"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-200" />
+              <span>{t('permitActiveChip', { id: transportPermit.id })}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setPermitTriggerInfo(null);
+                setIsPermitModalOpen(true);
+              }}
+              className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 border-2 border-amber-600 font-extrabold text-sm flex items-center gap-2 shadow-md transition cursor-pointer"
+            >
+              <FileCheck2 className="w-5 h-5" />
+              <span>
+                {transportPermit?.status === 'pending'
+                  ? t('permitPendingChip', { id: transportPermit.id })
+                  : t('btnApplyPermitTop')}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Live Map Tracker (Shown whenever a trip is active) */}
@@ -120,7 +203,7 @@ export default function OrdinaryDashboard() {
             </div>
           </div>
 
-          {/* STEP 1: WHERE IS YOUR FARM & DESTINATION (NO WORDINGS BELOW INPUTS) */}
+          {/* STEP 1: LOCATIONS + MAIN ROAD / CITY-TO-CITY SELECTOR */}
           {currentStep === 1 && (
             <div className="p-5 sm:p-7 space-y-6">
               <h2 className="text-xl font-extrabold text-slate-900">{t('step1Title')}</h2>
@@ -153,6 +236,35 @@ export default function OrdinaryDashboard() {
                     className="w-full px-4 py-4 rounded-xl border-2 border-slate-300 text-base font-semibold focus:outline-none focus:border-emerald-600"
                   />
                 </div>
+
+                {/* Clean Main Road / City-to-City Route Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsMainRoadOrIntercity((prev) => !prev)}
+                  className={`w-full px-4 py-3.5 rounded-xl border-2 flex items-center justify-between text-left transition cursor-pointer ${
+                    isMainRoadOrIntercity
+                      ? 'border-amber-500 bg-amber-50 text-amber-950'
+                      : 'border-slate-200 bg-slate-50 hover:border-slate-300 text-slate-700'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5 text-sm font-extrabold">
+                    <Route
+                      className={`w-5 h-5 ${
+                        isMainRoadOrIntercity ? 'text-amber-600' : 'text-slate-400'
+                      }`}
+                    />
+                    {t('labelMainRoadToggle')}
+                  </span>
+                  <span
+                    className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-extrabold ${
+                      isMainRoadOrIntercity
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'bg-white border border-slate-300 text-transparent'
+                    }`}
+                  >
+                    ✓
+                  </span>
+                </button>
               </div>
 
               <div className="pt-2">
@@ -169,13 +281,12 @@ export default function OrdinaryDashboard() {
             </div>
           )}
 
-          {/* STEP 2: WHAT CROP + 50 KG / 25 KG SACK DROPDOWN + QUANTITY */}
+          {/* STEP 2: WHAT CROP + 50 KG / 25 KG SACK DROPDOWN + QUANTITY + PERMIT HOLD */}
           {currentStep === 2 && (
             <div className="p-5 sm:p-7 space-y-6">
               <h2 className="text-xl font-extrabold text-slate-900">{t('step2Title')}</h2>
 
               <div className="space-y-5">
-                {/* Crop Name Input */}
                 <div>
                   <label className="flex items-center gap-2 text-base font-bold text-slate-800 mb-2">
                     <Sprout className="w-5 h-5 text-emerald-600" />
@@ -190,7 +301,6 @@ export default function OrdinaryDashboard() {
                   />
                 </div>
 
-                {/* Farmer-Friendly 50 kg or 25 kg Sack Weight Dropdown */}
                 <div>
                   <label className="block text-base font-bold text-slate-800 mb-2">
                     {t('labelSackSize')}
@@ -208,7 +318,6 @@ export default function OrdinaryDashboard() {
                   </div>
                 </div>
 
-                {/* Large +/- Sack Count Controls */}
                 <div>
                   <label className="block text-base font-bold text-slate-800 mb-2">
                     {t('labelSackCount')}
@@ -242,6 +351,68 @@ export default function OrdinaryDashboard() {
                 </div>
               </div>
 
+              {/* On-Hold Banner when Booking is Paused Waiting for Permit Approval */}
+              {bookingOnHoldForPermit && transportPermit?.status === 'pending' && (
+                <div className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Clock className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h3 className="text-base font-extrabold text-amber-950">
+                        {t('permitHoldTitle')}
+                      </h3>
+                      <p className="text-xs sm:text-sm text-amber-900 mt-1">
+                        {t('permitHoldSub', { id: transportPermit.id })}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={approveTransportPermit}
+                    className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm transition cursor-pointer"
+                  >
+                    {t('btnSimApprovePermit')}
+                  </button>
+                </div>
+              )}
+
+              {/* Approved Permit Banner -> Proceed to Step 3 */}
+              {bookingOnHoldForPermit && transportPermit?.status === 'approved' && (
+                <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="text-base font-extrabold text-emerald-950">
+                          {t('permitApprovedTitle', { id: transportPermit.id })}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-emerald-900 mt-1">
+                          {t('permitApprovedSub')}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsSoftCopyOpen(true)}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-800 text-xs font-extrabold shrink-0 cursor-pointer"
+                    >
+                      {t('btnViewPermitCopy')}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBookingOnHoldForPermit(false);
+                      setSelectedTruckId(null);
+                      setCurrentStep(3);
+                    }}
+                    className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <span>{t('btnProceedStep3')}</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-3 pt-2">
                 <button
                   type="button"
@@ -254,10 +425,7 @@ export default function OrdinaryDashboard() {
                 <button
                   type="button"
                   disabled={!canProceedStep2}
-                  onClick={() => {
-                    setSelectedTruckId(null);
-                    setCurrentStep(3);
-                  }}
+                  onClick={handleStep2Next}
                   className="col-span-2 py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold text-base flex items-center justify-center gap-2 transition cursor-pointer"
                 >
                   <span>{t('btnNextStep')}</span>
@@ -300,12 +468,9 @@ export default function OrdinaryDashboard() {
                             : 'border-slate-300 bg-white hover:border-slate-400 text-slate-900'
                         }`}
                       >
-                        {/* Left Side: Vehicle Name Only */}
                         <span className="text-base sm:text-lg font-extrabold">
                           {truck.vehicleModel}
                         </span>
-
-                        {/* Right Side: Weight Capacity Only */}
                         <span
                           className={`text-base sm:text-lg font-extrabold shrink-0 ${
                             isSelected ? 'text-emerald-700' : 'text-slate-600'
@@ -344,6 +509,26 @@ export default function OrdinaryDashboard() {
           )}
         </div>
       )}
+
+      {/* 5-Attribute Permit Application Modal */}
+      <PermitFormModal
+        isOpen={isPermitModalOpen}
+        onClose={() => setIsPermitModalOpen(false)}
+        prefillData={prefillPermitData}
+        triggerReasons={permitTriggerInfo}
+        onSubmitted={() => {
+          if (currentStep === 2) {
+            setBookingOnHoldForPermit(true);
+          }
+        }}
+      />
+
+      {/* Authenticated Soft Copy Viewer */}
+      <PermitSoftCopyModal
+        permit={transportPermit}
+        isOpen={isSoftCopyOpen}
+        onClose={() => setIsSoftCopyOpen(false)}
+      />
     </div>
   );
 }

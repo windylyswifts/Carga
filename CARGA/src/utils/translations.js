@@ -34,6 +34,9 @@ export const UI_STRINGS = {
     // Ordinary (Farmer) 3-Step Stepper
     farmerBadge: 'Farmer Home',
     farmerTitle: 'Send Your Harvest to Market',
+    btnApplyPermitTop: 'Apply for Permit',
+    permitActiveChip: 'Permit Ready ({id})',
+    permitPendingChip: 'Permit On Hold ({id})',
     stepIndicator: 'Step {current} of 3',
     step1Short: 'Locations',
     step2Short: 'Crop & Sacks',
@@ -45,6 +48,7 @@ export const UI_STRINGS = {
     placeholderPickup: 'Enter farm or barangay',
     labelDestination: 'Where are the crops going?',
     placeholderDestination: 'Enter market or drop-off place',
+    labelMainRoadToggle: 'Main Road / City-to-City Transport',
     btnNextStep: 'Next Step',
     btnBack: 'Back',
 
@@ -66,6 +70,41 @@ export const UI_STRINGS = {
     noCapableTrucksSub: 'Go back to reduce sacks or turn on a larger truck in Driver / Lender.',
     btnConfirmBooking: 'Confirm Booking',
     btnConfirmingBooking: 'Confirming...',
+
+    // Transport Permit Modal & Hold Banner
+    permitModalBadge: 'Transport Clearance Required',
+    permitModalTitle: 'Apply for Plant Transport Permit',
+    permitTriggerWeight: 'Cargo exceeds 8,000 kg ({kg} kg)',
+    permitTriggerRoute: 'Main Road / City-to-City route detected',
+    permitAttr1Label: '1. Name, Kind and Quantity of Plants/Planting Materials/Plant Products',
+    permitAttr1Placeholder: 'e.g., Cardava Bananas (Saba) — 170 Sacks',
+    permitAttr2Label: '2. Your Full Name',
+    permitAttr2Placeholder: 'Enter farmer or shipper full name',
+    permitAttr3Label: '3. Source of Plants/Planting Materials/Plant Products',
+    permitAttr3Placeholder: 'Enter farm origin / barangay / municipality',
+    permitAttr4Label: '4. Declared Means of Conveyance',
+    permitAttr4Placeholder: 'e.g., Cargo Truck / 6-Wheeler Hauling Vehicle',
+    permitAttr5Label: '5. Weight in Kilos',
+    btnAvailPermitAuth: 'Avail for Permit & Authenticate',
+    btnAuthenticating: 'Authenticating...',
+    permitHoldTitle: 'Booking On Hold — Waiting for Permit Approval',
+    permitHoldSub:
+      'Your transport permit ({id}) is being processed. Once approved, you can proceed to Step 3 to choose a truck.',
+    btnSimApprovePermit: 'Simulate Permit Approval (Demo)',
+    permitApprovedTitle: 'Permit Authenticated & Approved ({id})',
+    permitApprovedSub: 'Your official soft copy is ready and will be sent to your assigned driver.',
+    btnProceedStep3: 'Proceed to Step 3: Choose Truck',
+    btnViewPermitCopy: 'View Soft Copy',
+
+    // Driver Soft Copy Modal
+    driverPermitBannerTitle: 'Official Transport Permit Attached',
+    driverPermitBannerSub: 'Show soft copy to checkpoint officials when requested',
+    btnShowPermitSoftCopy: 'Show Permit Soft Copy',
+    softCopyHeader: 'OFFICIAL PLANT TRANSPORT PERMIT (SOFT COPY)',
+    softCopyVerifiedStamp: 'AUTHENTICATED & CLEARED',
+    softCopyRefLabel: 'Permit Reference No.',
+    softCopyIssuedLabel: 'Date Authenticated',
+    btnCloseModal: 'Close',
 
     // Live Truck Tracker & Fare Formula Breakdown
     waitingForDriverBadge: 'WAITING FOR DRIVER',
@@ -154,6 +193,9 @@ export const UI_STRINGS = {
     // Ordinary (Farmer) 3-Step Stepper
     farmerBadge: 'Tahanan ng Magsasaka',
     farmerTitle: 'Ihatid ang Iyong Ani sa Palengke',
+    btnApplyPermitTop: 'Kumuha ng Permit',
+    permitActiveChip: 'Handa ang Permit ({id})',
+    permitPendingChip: 'Naka-hold ang Permit ({id})',
     stepIndicator: 'Hakbang {current} ng 3',
     step1Short: 'Lugar',
     step2Short: 'Pananim at Sako',
@@ -165,6 +207,7 @@ export const UI_STRINGS = {
     placeholderPickup: 'Ilagay ang sakahan o barangay',
     labelDestination: 'Saan dadalhin ang ani?',
     placeholderDestination: 'Ilagay ang palengke o bababaan',
+    labelMainRoadToggle: 'Pangunahing Kalsada / Biyaheng Lungsod-sa-Lungsod',
     btnNextStep: 'Susunod na Hakbang',
     btnBack: 'Bumalik',
 
@@ -186,6 +229,41 @@ export const UI_STRINGS = {
     noCapableTrucksSub: 'Bumalik upang bawasan ang sako o magbukas ng mas malaking trak sa Drayber.',
     btnConfirmBooking: 'Kumpirmahin ang Trak',
     btnConfirmingBooking: 'Kinukumpirma...',
+
+    // Transport Permit Modal & Hold Banner
+    permitModalBadge: 'Kailangan ng Transport Permit',
+    permitModalTitle: 'Mag-apply para sa Plant Transport Permit',
+    permitTriggerWeight: 'Lumampas sa 8,000 kg ang karga ({kg} kg)',
+    permitTriggerRoute: 'Dadaan sa Pangunahing Kalsada / Lungsod-sa-Lungsod',
+    permitAttr1Label: '1. Pangalan, Uri at Dami ng Halaman / Produktong Pananim',
+    permitAttr1Placeholder: 'hal., Saging na Saba — 170 Sako',
+    permitAttr2Label: '2. Buong Pangalan Mo',
+    permitAttr2Placeholder: 'Ilagay ang iyong buong pangalan',
+    permitAttr3Label: '3. Pinagmulan ng Halaman / Produktong Pananim',
+    permitAttr3Placeholder: 'Ilagay ang sakahan / barangay / bayan',
+    permitAttr4Label: '4. Idineklarang Sasakyan (Means of Conveyance)',
+    permitAttr4Placeholder: 'hal., Cargo Truck / 6-Wheeler Truck',
+    permitAttr5Label: '5. Timbang sa Kilo (Weight in Kilos)',
+    btnAvailPermitAuth: 'Kumuha ng Permit at I-authenticate',
+    btnAuthenticating: 'Pinapatunayan...',
+    permitHoldTitle: 'Naka-hold ang Booking — Naghihintay ng Permit',
+    permitHoldSub:
+      'Pinoproseso na ang iyong permit ({id}). Kapag naaprubahan na, maaari ka nang magpatuloy sa Hakbang 3.',
+    btnSimApprovePermit: 'I-simulate ang Pag-apruba ng Permit (Demo)',
+    permitApprovedTitle: 'Naaprubahan na ang Permit ({id})',
+    permitApprovedSub: 'Handa na ang soft copy at ipapadala sa iyong drayber.',
+    btnProceedStep3: 'Magpatuloy sa Hakbang 3: Piliin ang Trak',
+    btnViewPermitCopy: 'Tingnan ang Soft Copy',
+
+    // Driver Soft Copy Modal
+    driverPermitBannerTitle: 'May Kasamang Opisyal na Transport Permit',
+    driverPermitBannerSub: 'Ipakita ang soft copy sa mga opisyal kung hihingin',
+    btnShowPermitSoftCopy: 'Ipakita ang Soft Copy ng Permit',
+    softCopyHeader: 'OPISYAL NA PLANT TRANSPORT PERMIT (SOFT COPY)',
+    softCopyVerifiedStamp: 'NA-AUTHENTICATE AT APRUBADO',
+    softCopyRefLabel: 'Numero ng Permit',
+    softCopyIssuedLabel: 'Petsa ng Pag-apruba',
+    btnCloseModal: 'Isara',
 
     // Live Truck Tracker & Fare Formula Breakdown
     waitingForDriverBadge: 'NAGHIHINTAY SA DRAYBER',
@@ -274,6 +352,9 @@ export const UI_STRINGS = {
     // Ordinary (Farmer) 3-Step Stepper
     farmerBadge: 'Balay sa Mag-uuma',
     farmerTitle: 'Ihatod ang Imong Abot sa Merkado',
+    btnApplyPermitTop: 'Kuha og Permit',
+    permitActiveChip: 'Andam na ang Permit ({id})',
+    permitPendingChip: 'Naka-hold ang Permit ({id})',
     stepIndicator: 'Lakang {current} sa 3',
     step1Short: 'Lugar',
     step2Short: 'Tanom ug Sako',
@@ -285,6 +366,7 @@ export const UI_STRINGS = {
     placeholderPickup: 'Ibutang ang uma o barangay',
     labelDestination: 'Asa dad-on ang abot?',
     placeholderDestination: 'Ibutang ang merkado o kanaoganan',
+    labelMainRoadToggle: 'Main Road / Biyaheng Siyudad-paingon-Siyudad',
     btnNextStep: 'Sunod nga Lakang',
     btnBack: 'Balik',
 
@@ -306,6 +388,41 @@ export const UI_STRINGS = {
     noCapableTrucksSub: 'Balik aron pakunhuran ang sako o i-on ang mas dako nga trak sa Drayber.',
     btnConfirmBooking: 'Kumpirmaha ang Trak',
     btnConfirmingBooking: 'Gikumpirma...',
+
+    // Transport Permit Modal & Hold Banner
+    permitModalBadge: 'Kinahanglan og Transport Permit',
+    permitModalTitle: 'Pag-apply og Plant Transport Permit',
+    permitTriggerWeight: 'Nilapas sa 8,000 kg ang karga ({kg} kg)',
+    permitTriggerRoute: 'Moagi sa Main Road / Siyudad-paingon-Siyudad',
+    permitAttr1Label: '1. Ngalan, Matang ug Gidaghanon sa Tanom / Produktong Abot',
+    permitAttr1Placeholder: 'pananglitan, Saging nga Sab-a — 170 Sako',
+    permitAttr2Label: '2. Imong Tibuok Ngalan',
+    permitAttr2Placeholder: 'Ibutang ang imong tibuok ngalan',
+    permitAttr3Label: '3. Gigikanan sa Tanom / Produktong Abot',
+    permitAttr3Placeholder: 'Ibutang ang uma / barangay / lungsod',
+    permitAttr4Label: '4. Gideklarar nga Sakyanan (Means of Conveyance)',
+    permitAttr4Placeholder: 'pananglitan, Cargo Truck / 6-Wheeler Truck',
+    permitAttr5Label: '5. Gibug-aton sa Kilo (Weight in Kilos)',
+    btnAvailPermitAuth: 'Kuha og Permit ug I-authenticate',
+    btnAuthenticating: 'Gipamatud-an...',
+    permitHoldTitle: 'Naka-hold ang Booking — Naghulat sa Permit',
+    permitHoldSub:
+      'Giproseso na ang imong permit ({id}). Kon maaprobahan na, mahimo ka nang mopadayon sa Lakang 3.',
+    btnSimApprovePermit: 'I-simulate ang Pag-aprobar sa Permit (Demo)',
+    permitApprovedTitle: 'Naaprobahan na ang Permit ({id})',
+    permitApprovedSub: 'Andam na ang soft copy ug ipadala sa imong drayber.',
+    btnProceedStep3: 'Padayon sa Lakang 3: Pili og Trak',
+    btnViewPermitCopy: 'Tan-awa ang Soft Copy',
+
+    // Driver Soft Copy Modal
+    driverPermitBannerTitle: 'Naay Opisyal nga Transport Permit',
+    driverPermitBannerSub: 'Ipakita ang soft copy sa mga opisyal kon pangayoon',
+    btnShowPermitSoftCopy: 'Ipakita ang Soft Copy sa Permit',
+    softCopyHeader: 'OPISYAL NGA PLANT TRANSPORT PERMIT (SOFT COPY)',
+    softCopyVerifiedStamp: 'NA-AUTHENTICATE UG APRUBADO',
+    softCopyRefLabel: 'Numero sa Permit',
+    softCopyIssuedLabel: 'Petsa sa Pag-aprobar',
+    btnCloseModal: 'Sirad-i',
 
     // Live Truck Tracker & Fare Formula Breakdown
     waitingForDriverBadge: 'NAGHULAT SA DRAYBER',

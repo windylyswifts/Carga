@@ -3,6 +3,8 @@ import { UI_STRINGS, translateDynamicText } from '../utils/translations';
 
 const LogisticsContext = createContext();
 
+export const PERMIT_WEIGHT_LIMIT_KG = 8000;
+
 const INITIAL_TRUCKS = [
   {
     id: 'TRK-101',
@@ -11,8 +13,8 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Isuzu Elf 6-Wheeler Truck',
     plateNumber: 'KAG 4821',
     capacityKg: 3500,
-    ratePerKm: 45, // R_d: Transportation rate per km (₱/km)
-    handlingRatePerKg: 0.5, // R_w: Cargo handling rate per kg (₱/kg)
+    ratePerKm: 45,
+    handlingRatePerKg: 0.5,
     rating: 4.9,
     tripsCompleted: 142,
     totalEarnings: 48500,
@@ -26,8 +28,8 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Suzuki Multicab (High-Side)',
     plateNumber: 'LMA 9034',
     capacityKg: 800,
-    ratePerKm: 28, // R_d
-    handlingRatePerKg: 0.35, // R_w
+    ratePerKm: 28,
+    handlingRatePerKg: 0.35,
     rating: 4.8,
     tripsCompleted: 89,
     totalEarnings: 24300,
@@ -41,8 +43,8 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Mitsubishi Canter Mini-Dump',
     plateNumber: 'NDF 1129',
     capacityKg: 2000,
-    ratePerKm: 36, // R_d
-    handlingRatePerKg: 0.45, // R_w
+    ratePerKm: 36,
+    handlingRatePerKg: 0.45,
     rating: 4.7,
     tripsCompleted: 64,
     totalEarnings: 31200,
@@ -53,16 +55,16 @@ const INITIAL_TRUCKS = [
     id: 'TRK-104',
     driverName: 'Arturo Villanueva',
     phone: '+63 906 512 7740',
-    vehicleModel: 'Foton Tornado Cargo Truck',
+    vehicleModel: 'Isuzu Giga 10-Wheeler Heavy Cargo',
     plateNumber: 'ZBX 7742',
-    capacityKg: 4500,
-    ratePerKm: 55, // R_d
-    handlingRatePerKg: 0.6, // R_w
+    capacityKg: 12000,
+    ratePerKm: 68,
+    handlingRatePerKg: 0.65,
     rating: 4.9,
     tripsCompleted: 210,
     totalEarnings: 79400,
-    isAvailable: false,
-    currentLocation: 'Buenavista Depot',
+    isAvailable: true,
+    currentLocation: 'National Highway Terminal',
   },
 ];
 
@@ -74,7 +76,41 @@ export const TRIP_STAGES = [
   { id: 4, labelKey: 'stage4Label', subKey: 'stage4Sub', driverBtnKey: null, progress: 100 },
 ];
 
-// Derives Demand & Availability Multiplier (S) from current online truck supply
+// Validates whether a Transport Permit is required:
+// 1. Cargo weight > 8,000 kg
+// 2. Route uses a main road / highway or crosses city-to-city boundaries
+export function evaluatePermitRequirement({ weightKg, pickup, destination, isMainRoadOrIntercity }) {
+  const exceedsWeight = Number(weightKg) > PERMIT_WEIGHT_LIMIT_KG;
+
+  const combinedRoute = `${String(pickup)} ${String(destination)}`.toLowerCase();
+  const highwayKeywords = [
+    'highway',
+    'national road',
+    'main road',
+    'expressway',
+    'diversion',
+    'city',
+    'cagayan',
+    'butuan',
+    'davao',
+    'iligan',
+    'valencia',
+    'malaybalay',
+    'surigao',
+    'tagum',
+    'general santos',
+  ];
+  const keywordMatch = highwayKeywords.some((kw) => combinedRoute.includes(kw));
+
+  const crossesRoute = Boolean(isMainRoadOrIntercity) || keywordMatch;
+
+  return {
+    required: exceedsWeight || crossesRoute,
+    exceedsWeight,
+    crossesRoute,
+  };
+}
+
 export function getAvailabilityMultiplier(trucks) {
   const onlineCount = trucks.filter((tr) => tr.isAvailable).length;
   if (onlineCount <= 1) return 1.25;
@@ -82,9 +118,6 @@ export function getAvailabilityMultiplier(trucks) {
   return 1.0;
 }
 
-// Stage 1 & Stage 2 Fare Calculation Engine
-// Stage 1: TripCost = [(D * R_d) + (W * R_w)] * S
-// Stage 2: CustomerFare = TripCost * (CustomerWeight / TotalCargoWeight)
 export function calculateTripFare({
   pickup,
   destination,
@@ -96,20 +129,17 @@ export function calculateTripFare({
   const combined = `${String(pickup).trim()}-${String(destination).trim()}`;
   const hash = combined.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
 
-  const distanceKm = 8 + (hash % 18); // D: Total distance travelled (km)
+  const distanceKm = 8 + (hash % 18);
   const estimatedMinutes = Math.round(distanceKm * 2.5);
 
-  const ratePerKm = truck.ratePerKm; // R_d
-  const handlingRatePerKg = truck.handlingRatePerKg; // R_w
+  const ratePerKm = truck.ratePerKm;
+  const handlingRatePerKg = truck.handlingRatePerKg;
   const effectiveTotalWeight = Math.max(Number(totalCargoWeightKg), Number(customerWeightKg), 1);
 
   const distanceCost = distanceKm * ratePerKm;
   const handlingCost = effectiveTotalWeight * handlingRatePerKg;
 
-  // Stage 1: Total Trip Cost
   const tripCost = Math.round((distanceCost + handlingCost) * availabilityMultiplier);
-
-  // Stage 2: Customer Fare Allocation
   const weightShareRatio = Number(customerWeightKg) / effectiveTotalWeight;
   const customerFare = Math.round(tripCost * weightShareRatio);
 
@@ -127,10 +157,13 @@ export function calculateTripFare({
 }
 
 export const LogisticsProvider = ({ children }) => {
-  const [language, setLanguage] = useState('en'); // 'en' | 'tl' | 'ceb'
-  const [activeRole, setActiveRole] = useState('ordinary'); // 'ordinary' | 'driver'
+  const [language, setLanguage] = useState('en');
+  const [activeRole, setActiveRole] = useState('ordinary');
   const [trucks, setTrucks] = useState(INITIAL_TRUCKS);
   const [activeBooking, setActiveBooking] = useState(null);
+
+  // Transport Permit State: null | { id, status: 'pending' | 'approved', issuedAt, ...5 attributes }
+  const [transportPermit, setTransportPermit] = useState(null);
 
   const t = (key, params = {}) => {
     const dict = UI_STRINGS[language] || UI_STRINGS.en;
@@ -180,6 +213,42 @@ export const LogisticsProvider = ({ children }) => {
     );
   };
 
+  // Submit and authenticate permit request -> sets booking on hold ('pending')
+  const submitPermitApplication = ({
+    plantDetails,
+    applicantFullName,
+    plantSource,
+    declaredConveyance,
+    weightInKilos,
+  }) => {
+    const permitId = `PTP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+    const newPermit = {
+      id: permitId,
+      status: 'pending',
+      plantDetails: String(plantDetails).trim(),
+      applicantFullName: String(applicantFullName).trim(),
+      plantSource: String(plantSource).trim(),
+      declaredConveyance: String(declaredConveyance).trim(),
+      weightInKilos: Number(weightInKilos),
+      submittedAt: new Date().toLocaleString(),
+      issuedAt: null,
+    };
+    setTransportPermit(newPermit);
+    return newPermit;
+  };
+
+  // Approve permit so farmer can resume booking & driver receives soft copy
+  const approveTransportPermit = () => {
+    setTransportPermit((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        status: 'approved',
+        issuedAt: new Date().toLocaleString(),
+      };
+    });
+  };
+
   const createBooking = async ({
     truck,
     pickup,
@@ -209,7 +278,7 @@ export const LogisticsProvider = ({ children }) => {
     setActiveBooking({
       id: `TRIP-${Math.floor(1000 + Math.random() * 9000)}`,
       truck,
-      farmerName: 'Juan Dela Cruz (Farmstead Coop)',
+      farmerName: transportPermit?.applicantFullName || 'Juan Dela Cruz (Farmstead Coop)',
       farmerPhone: '+63 919 304 5512',
       pickup: localizedPickup,
       destination: localizedDestination,
@@ -220,6 +289,7 @@ export const LogisticsProvider = ({ children }) => {
       estimatedMinutes: fareBreakdown.estimatedMinutes,
       totalFare: fareBreakdown.customerFare,
       fareBreakdown,
+      permit: transportPermit?.status === 'approved' ? transportPermit : null,
       stageIndex: 0,
       liveProgress: 5,
     });
@@ -253,7 +323,11 @@ export const LogisticsProvider = ({ children }) => {
   };
 
   const cancelBooking = () => setActiveBooking(null);
-  const completeAndClearBooking = () => setActiveBooking(null);
+
+  const completeAndClearBooking = () => {
+    setActiveBooking(null);
+    setTransportPermit(null);
+  };
 
   return (
     <LogisticsContext.Provider
@@ -271,6 +345,9 @@ export const LogisticsProvider = ({ children }) => {
         advanceTripStage,
         cancelBooking,
         completeAndClearBooking,
+        transportPermit,
+        submitPermitApplication,
+        approveTransportPermit,
       }}
     >
       {children}
@@ -278,4 +355,4 @@ export const LogisticsProvider = ({ children }) => {
   );
 };
 
-export const useLogistics = () => useContext(LogisticsContext);
+export const useLogistics = () => useContext(LogisticsContext); 
