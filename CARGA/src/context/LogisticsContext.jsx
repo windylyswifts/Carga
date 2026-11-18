@@ -187,11 +187,15 @@ export function calculateTripFare({
 export const LogisticsProvider = ({ children }) => {
   const [language, setLanguage] = useState('en');
   const [activeRole, setActiveRole] = useState('ordinary');
+
+  // Shared Farmer Navigation State (so top navbar logo can always return to Home)
+  const [farmerTab, setFarmerTab] = useState('home');
+  const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
+
   const [trucks, setTrucks] = useState(INITIAL_TRUCKS);
   const [activeBooking, setActiveBooking] = useState(null);
   const [transportPermit, setTransportPermit] = useState(null);
 
-  // Farmer Profile, Activity Logs & Notifications
   const [farmerProfile, setFarmerProfile] = useState({
     fullName: 'Juan Dela Cruz',
     farmLocation: 'Brgy. Sumilihon Farm',
@@ -200,6 +204,12 @@ export const LogisticsProvider = ({ children }) => {
   });
   const [activityLogs, setActivityLogs] = useState(INITIAL_ACTIVITY_LOGS);
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+
+  const navigateToFarmerHome = () => {
+    setActiveRole('ordinary');
+    setFarmerTab('home');
+    setIsBookingFormOpen(false);
+  };
 
   const t = (key, params = {}) => {
     const dict = UI_STRINGS[language] || UI_STRINGS.en;
@@ -492,6 +502,11 @@ export const LogisticsProvider = ({ children }) => {
         t,
         activeRole,
         setActiveRole,
+        farmerTab,
+        setFarmerTab,
+        isBookingFormOpen,
+        setIsBookingFormOpen,
+        navigateToFarmerHome,
         trucks,
         toggleTruckAvailability,
         updateTruckLocation,

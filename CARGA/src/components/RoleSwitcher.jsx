@@ -5,8 +5,16 @@ import { LANGUAGES } from '../utils/translations';
 import CargaLogo from './CargaLogo';
 
 export default function RoleSwitcher() {
-  const { language, setLanguage, t, activeRole, setActiveRole, activeBooking, trucks } =
-    useLogistics();
+  const {
+    language,
+    setLanguage,
+    t,
+    activeRole,
+    setActiveRole,
+    navigateToFarmerHome,
+    activeBooking,
+    trucks,
+  } = useLogistics();
 
   const onlineTruckCount = trucks.filter((tr) => tr.isAvailable).length;
 
@@ -28,8 +36,16 @@ export default function RoleSwitcher() {
   return (
     <header className="sticky top-0 z-50 bg-slate-900 text-white border-b border-slate-800 shadow-md">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2.5">
-        {/* Blended Transparent White CARGA Logo */}
-        <CargaLogo variant="navbar-blended" />
+        {/* Clickable Blended CARGA Logo -> Redirects to Farmer Home */}
+        <button
+          type="button"
+          onClick={navigateToFarmerHome}
+          title="Go to Home"
+          aria-label="CARGA — Go to Home"
+          className="rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 hover:opacity-90 active:scale-[0.98] transition-all duration-150 cursor-pointer"
+        >
+          <CargaLogo variant="navbar-blended" />
+        </button>
 
         {/* Role Switcher Pills */}
         <div className="flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700/70 order-3 sm:order-2 w-full sm:w-auto justify-between sm:justify-start">

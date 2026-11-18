@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ShieldCheck, X, QrCode } from 'lucide-react';
 import { useLogistics } from '../context/LogisticsContext';
 import CargaLogo from './CargaLogo';
@@ -6,18 +6,40 @@ import CargaLogo from './CargaLogo';
 export default function PermitSoftCopyModal({ permit, isOpen, onClose }) {
   const { t } = useLogistics();
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen || !permit) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-backdrop-fade">
-      <div className="bg-white w-full max-w-lg rounded-2xl border-2 border-emerald-600 shadow-2xl overflow-hidden my-8 animate-modal-pop">
-        {/* Top Official Bar with CARGA Horizontal Logo */}
-        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between gap-3">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 bg-slate-950/75 flex items-center justify-center p-3 sm:p-5 animate-backdrop-fade"
+    >
+      <div className="bg-white w-full max-w-lg max-h-[90dvh] rounded-2xl border-2 border-emerald-600 shadow-2xl flex flex-col overflow-hidden animate-modal-pop">
+        {/* Pinned Official Bar with CARGA Horizontal Logo */}
+        <div className="bg-white border-b border-slate-200 px-5 sm:px-6 py-4 flex items-center justify-between gap-3 shrink-0">
           <CargaLogo variant="horizontal" className="h-11 sm:h-12 w-auto object-contain" />
 
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close modal"
             className="p-2 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -25,15 +47,15 @@ export default function PermitSoftCopyModal({ permit, isOpen, onClose }) {
         </div>
 
         {/* Sub-header */}
-        <div className="bg-emerald-950 text-white px-6 py-2.5 flex items-center justify-between text-xs">
+        <div className="bg-emerald-950 text-white px-5 sm:px-6 py-2.5 flex items-center justify-between text-xs shrink-0">
           <span className="font-extrabold uppercase tracking-wider text-emerald-300">
             {t('softCopyHeader')}
           </span>
           <span className="font-mono font-bold text-white">{permit.id}</span>
         </div>
 
-        {/* Official Soft Copy Body */}
-        <div className="p-6 space-y-5">
+        {/* Smooth Scrollable Official Soft Copy Body */}
+        <div className="overflow-y-auto overscroll-contain touch-pan-y flex-1 p-5 sm:p-6 space-y-5">
           <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
             <div>
               <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-800 bg-emerald-200/80 px-2.5 py-1 rounded-full">

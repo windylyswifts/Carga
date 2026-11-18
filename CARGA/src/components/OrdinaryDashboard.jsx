@@ -28,12 +28,17 @@ import { LANGUAGES } from '../utils/translations';
 import LiveTruckTracker from './LiveTruckTracker';
 import PermitFormModal from './PermitFormModal';
 import PermitSoftCopyModal from './PermitSoftCopyModal';
+import { BookTruck3DIcon, PermitInquiry3DIcon } from './ActionIcons3D';
 
 export default function OrdinaryDashboard() {
   const {
     language,
     setLanguage,
     t,
+    farmerTab,
+    setFarmerTab,
+    isBookingFormOpen,
+    setIsBookingFormOpen,
     trucks,
     activeBooking,
     createBooking,
@@ -46,21 +51,15 @@ export default function OrdinaryDashboard() {
     markAllNotificationsRead,
   } = useLogistics();
 
-  // Bottom Navigation Tab: 'home' | 'history' | 'notifications' | 'profile'
-  const [activeTab, setActiveTab] = useState('home');
-
-  // Toggles between the Farmer Home Landing Page and the 3-Step Booking Form
-  const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
-
   // 3-Step Stepper State: 1 = Locations | 2 = Crop & Sacks | 3 = Capable Trucks
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Step 1 Inputs (initialized from farmerProfile.farmLocation)
+  // Step 1 Inputs
   const [pickup, setPickup] = useState(farmerProfile.farmLocation);
   const [destination, setDestination] = useState('Langihan Public Market');
   const [isMainRoadOrIntercity, setIsMainRoadOrIntercity] = useState(false);
 
-  // Step 2 Inputs (Direct typing + +/- controls)
+  // Step 2 Inputs
   const [cropType, setCropType] = useState('Bananas (Saba)');
   const [sackWeightKg, setSackWeightKg] = useState(50);
   const [sackCountInput, setSackCountInput] = useState('12');
@@ -104,7 +103,7 @@ export default function OrdinaryDashboard() {
     setCurrentStep(1);
     setSelectedTruckId(null);
     setBookingOnHoldForPermit(false);
-    setActiveTab('home');
+    setFarmerTab('home');
     setIsBookingFormOpen(true);
   };
 
@@ -180,7 +179,7 @@ export default function OrdinaryDashboard() {
     setBookingOnHoldForPermit(false);
     setCurrentStep(1);
     setIsBookingFormOpen(false);
-    setActiveTab('home');
+    setFarmerTab('home');
   };
 
   const handleSaveProfile = (e) => {
@@ -220,7 +219,7 @@ export default function OrdinaryDashboard() {
         {/* =========================================================
             TAB 1A: FARMER HOME LANDING PAGE
            ========================================================= */}
-        {activeTab === 'home' && !isBookingFormOpen && (
+        {farmerTab === 'home' && !isBookingFormOpen && (
           <div key="farmer-home" className="space-y-6 animate-fade-slide">
             {/* Greeting Header */}
             <div>
@@ -240,18 +239,18 @@ export default function OrdinaryDashboard() {
               </div>
             )}
 
-            {/* ROW 1: Two Equal-Width Action Cards (Book a Truck & Transport Permit) */}
+            {/* ROW 1: Two Equal-Width 3D Action Cards (Color-Psychology Paired) */}
             <div className="grid grid-cols-2 gap-3.5 sm:gap-5">
-              {/* Button 1: Book a Truck */}
+              {/* Card 1: Book a Truck — Rich Emerald-Teal Gradient (Action & Harvest Growth) */}
               <button
                 type="button"
                 onClick={handleOpenBookingForm}
-                className="group bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-2xl p-5 sm:p-6 border-2 border-emerald-700 shadow-sm flex flex-col items-center justify-center text-center transition-all duration-150 cursor-pointer"
+                className="group relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-500 hover:to-teal-700 active:scale-[0.98] text-white rounded-2xl p-5 sm:p-6 border border-emerald-400/40 shadow-md flex flex-col items-center justify-center text-center transition-all duration-200 cursor-pointer"
               >
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/15 group-hover:bg-white/25 flex items-center justify-center mb-3 transition-colors duration-150">
-                  <Truck className="w-8 h-8 sm:w-9 sm:h-9 text-white" />
+                <div className="mb-2.5 transform group-hover:-translate-y-0.5 group-hover:scale-105 transition-transform duration-200">
+                  <BookTruck3DIcon className="w-16 h-16 sm:w-20 sm:h-20" />
                 </div>
-                <span className="text-base sm:text-lg font-extrabold leading-tight">
+                <span className="text-base sm:text-lg font-extrabold tracking-tight leading-tight">
                   {t('cardBookTitle')}
                 </span>
                 <span className="text-xs font-medium text-emerald-100 mt-1">
@@ -259,37 +258,27 @@ export default function OrdinaryDashboard() {
                 </span>
               </button>
 
-              {/* Button 2: Transport Permit Inquiry / Application */}
+              {/* Card 2: Transport Permit Inquiry — Deep Royal Navy + Warm Gold (Official Trust & Clearance) */}
               <button
                 type="button"
                 onClick={handlePermitCardClick}
-                className={`group rounded-2xl p-5 sm:p-6 border-2 shadow-sm flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all duration-150 cursor-pointer ${
+                className={`group relative overflow-hidden rounded-2xl p-5 sm:p-6 border shadow-md flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all duration-200 cursor-pointer ${
                   transportPermit?.status === 'approved'
-                    ? 'bg-emerald-50 hover:bg-emerald-100/80 border-emerald-500 text-emerald-950'
-                    : 'bg-amber-500 hover:bg-amber-400 border-amber-600 text-slate-950'
+                    ? 'bg-gradient-to-br from-emerald-50 via-teal-50 to-emerald-100 border-emerald-400 text-emerald-950'
+                    : 'bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-900 hover:from-blue-800 hover:to-slate-900 border-amber-400/50 text-white'
                 }`}
               >
-                <div
-                  className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-3 transition-colors duration-150 ${
-                    transportPermit?.status === 'approved'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-950/10 group-hover:bg-slate-950/15 text-slate-950'
-                  }`}
-                >
-                  {transportPermit?.status === 'approved' ? (
-                    <ShieldCheck className="w-8 h-8 sm:w-9 sm:h-9" />
-                  ) : (
-                    <FileCheck2 className="w-8 h-8 sm:w-9 sm:h-9" />
-                  )}
+                <div className="mb-2.5 transform group-hover:-translate-y-0.5 group-hover:scale-105 transition-transform duration-200">
+                  <PermitInquiry3DIcon className="w-16 h-16 sm:w-20 sm:h-20" />
                 </div>
-                <span className="text-base sm:text-lg font-extrabold leading-tight">
+                <span className="text-base sm:text-lg font-extrabold tracking-tight leading-tight">
                   {t('cardPermitTitle')}
                 </span>
                 <span
                   className={`text-xs font-semibold mt-1 ${
                     transportPermit?.status === 'approved'
                       ? 'text-emerald-800'
-                      : 'text-slate-900/85'
+                      : 'text-amber-300'
                   }`}
                 >
                   {transportPermit?.status === 'approved'
@@ -305,11 +294,11 @@ export default function OrdinaryDashboard() {
             <div
               role="button"
               tabIndex={0}
-              onClick={() => setActiveTab('history')}
+              onClick={() => setFarmerTab('history')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setActiveTab('history');
+                  setFarmerTab('history');
                 }
               }}
               className="w-full bg-white hover:bg-slate-50/90 active:scale-[0.995] rounded-2xl border-2 border-slate-200 hover:border-emerald-500 p-5 sm:p-6 shadow-2xs transition-all duration-150 cursor-pointer"
@@ -333,7 +322,6 @@ export default function OrdinaryDashboard() {
                 </span>
               </div>
 
-              {/* Preview of Latest 3 Activity Items */}
               <div className="space-y-2.5">
                 {activityLogs.slice(0, 3).map((item) => (
                   <div
@@ -344,7 +332,7 @@ export default function OrdinaryDashboard() {
                       <div
                         className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
                           item.type === 'permit'
-                            ? 'bg-amber-100 text-amber-800'
+                            ? 'bg-blue-100 text-blue-900'
                             : 'bg-emerald-100 text-emerald-800'
                         }`}
                       >
@@ -386,9 +374,9 @@ export default function OrdinaryDashboard() {
         )}
 
         {/* =========================================================
-            TAB 1B: 3-STEP TRUCK BOOKING WIZARD (Opened from Book Card)
+            TAB 1B: 3-STEP TRUCK BOOKING WIZARD
            ========================================================= */}
-        {activeTab === 'home' && isBookingFormOpen && (
+        {farmerTab === 'home' && isBookingFormOpen && (
           <div key="booking-wizard" className="space-y-5 animate-fade-slide">
             <div className="flex items-center justify-between gap-3">
               <button
@@ -493,14 +481,14 @@ export default function OrdinaryDashboard() {
                       onClick={() => setIsMainRoadOrIntercity((prev) => !prev)}
                       className={`w-full px-4 py-3.5 rounded-xl border-2 flex items-center justify-between text-left transition-all duration-150 cursor-pointer ${
                         isMainRoadOrIntercity
-                          ? 'border-amber-500 bg-amber-50 text-amber-950'
+                          ? 'border-blue-700 bg-blue-50 text-blue-950'
                           : 'border-slate-200 bg-slate-50 hover:border-slate-300 text-slate-700'
                       }`}
                     >
                       <span className="flex items-center gap-2.5 text-sm font-extrabold">
                         <Route
                           className={`w-5 h-5 transition-colors duration-150 ${
-                            isMainRoadOrIntercity ? 'text-amber-600' : 'text-slate-400'
+                            isMainRoadOrIntercity ? 'text-blue-700' : 'text-slate-400'
                           }`}
                         />
                         {t('labelMainRoadToggle')}
@@ -508,7 +496,7 @@ export default function OrdinaryDashboard() {
                       <span
                         className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-extrabold transition-all duration-150 ${
                           isMainRoadOrIntercity
-                            ? 'bg-amber-500 text-slate-950 scale-105'
+                            ? 'bg-blue-800 text-white scale-105'
                             : 'bg-white border border-slate-300 text-transparent'
                         }`}
                       >
@@ -615,14 +603,14 @@ export default function OrdinaryDashboard() {
                   </div>
 
                   {bookingOnHoldForPermit && transportPermit?.status === 'pending' && (
-                    <div className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5 space-y-3 animate-fade-slide">
+                    <div className="rounded-2xl border-2 border-blue-800 bg-blue-50 p-5 space-y-3 animate-fade-slide">
                       <div className="flex items-start gap-3">
-                        <Clock className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+                        <Clock className="w-6 h-6 text-blue-800 shrink-0 mt-0.5" />
                         <div>
-                          <h3 className="text-base font-extrabold text-amber-950">
+                          <h3 className="text-base font-extrabold text-blue-950">
                             {t('permitHoldTitle')}
                           </h3>
-                          <p className="text-xs sm:text-sm text-amber-900 mt-1">
+                          <p className="text-xs sm:text-sm text-blue-900 mt-1">
                             {t('permitHoldSub', { id: transportPermit.id })}
                           </p>
                         </div>
@@ -630,7 +618,7 @@ export default function OrdinaryDashboard() {
                       <button
                         type="button"
                         onClick={approveTransportPermit}
-                        className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 font-extrabold text-sm transition-all duration-150 cursor-pointer"
+                        className="w-full py-3 px-4 rounded-xl bg-blue-900 hover:bg-blue-800 active:scale-[0.99] text-white font-extrabold text-sm transition-all duration-150 cursor-pointer"
                       >
                         {t('btnSimApprovePermit')}
                       </button>
@@ -775,7 +763,7 @@ export default function OrdinaryDashboard() {
         {/* =========================================================
             TAB 2: FULL ACTIVITY & TRIP HISTORY LOG
            ========================================================= */}
-        {activeTab === 'history' && (
+        {farmerTab === 'history' && (
           <div key="tab-history" className="space-y-5 animate-fade-slide">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
@@ -799,7 +787,7 @@ export default function OrdinaryDashboard() {
                       <div
                         className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
                           item.type === 'permit'
-                            ? 'bg-amber-100 text-amber-800'
+                            ? 'bg-blue-100 text-blue-900'
                             : 'bg-emerald-100 text-emerald-800'
                         }`}
                       >
@@ -844,7 +832,7 @@ export default function OrdinaryDashboard() {
         {/* =========================================================
             TAB 3: NOTIFICATIONS / ALERTS
            ========================================================= */}
-        {activeTab === 'notifications' && (
+        {farmerTab === 'notifications' && (
           <div key="tab-notifications" className="space-y-5 animate-fade-slide">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -908,7 +896,7 @@ export default function OrdinaryDashboard() {
         {/* =========================================================
             TAB 4: FARMER PROFILE
            ========================================================= */}
-        {activeTab === 'profile' && (
+        {farmerTab === 'profile' && (
           <div key="tab-profile" className="space-y-5 animate-fade-slide">
             <div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
@@ -985,7 +973,6 @@ export default function OrdinaryDashboard() {
                 </div>
               </div>
 
-              {/* Language Quick Selector */}
               <div>
                 <span className="block text-sm font-extrabold text-slate-800 mb-2">
                   {t('profileLangLabel')}
@@ -1039,13 +1026,13 @@ export default function OrdinaryDashboard() {
         <div className="max-w-3xl mx-auto px-2 py-1.5 grid grid-cols-4 gap-1">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isSelected = activeTab === item.id;
+            const isSelected = farmerTab === item.id;
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => {
-                  setActiveTab(item.id);
+                  setFarmerTab(item.id);
                   if (item.id === 'home') {
                     setIsBookingFormOpen(false);
                   }
