@@ -7,11 +7,11 @@ const INITIAL_TRUCKS = [
     id: 'TRK-101',
     driverName: 'Mang Ramon Reyes',
     phone: '+63 917 482 1904',
-    vehicleModel: 'Isuzu Elf 6-Wheeler Drop-side',
+    vehicleModel: 'Isuzu Elf 6-Wheeler Truck',
     plateNumber: 'KAG 4821',
     capacityKg: 3500,
-    ratePerKm: 45,
     baseFare: 850,
+    ratePerKm: 45,
     rating: 4.9,
     tripsCompleted: 142,
     isAvailable: true,
@@ -21,11 +21,11 @@ const INITIAL_TRUCKS = [
     id: 'TRK-102',
     driverName: 'Kuya Dante Navarro',
     phone: '+63 928 710 3392',
-    vehicleModel: 'Suzuki Carry Multicab (High-Side)',
+    vehicleModel: 'Suzuki Multicab (High-Side)',
     plateNumber: 'LMA 9034',
     capacityKg: 800,
-    ratePerKm: 25,
     baseFare: 400,
+    ratePerKm: 25,
     rating: 4.8,
     tripsCompleted: 89,
     isAvailable: true,
@@ -38,8 +38,8 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Mitsubishi Canter Mini-Dump',
     plateNumber: 'NDF 1129',
     capacityKg: 2000,
-    ratePerKm: 35,
     baseFare: 650,
+    ratePerKm: 35,
     rating: 4.7,
     tripsCompleted: 64,
     isAvailable: true,
@@ -52,11 +52,11 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Foton Tornado Cargo Truck',
     plateNumber: 'ZBX 7742',
     capacityKg: 4500,
-    ratePerKm: 55,
     baseFare: 1100,
+    ratePerKm: 55,
     rating: 4.9,
     tripsCompleted: 210,
-    isAvailable: false, // Offline truck to demonstrate filtering
+    isAvailable: false,
     currentLocation: 'Buenavista Depot',
   },
 ];
@@ -68,29 +68,40 @@ const INITIAL_LISTINGS = [
     cropName: 'Cardava Bananas (Saba)',
     quantityKg: 650,
     pricePerKg: 28,
-    origin: 'Brgy. Sumilihon Farm Lot 4',
+    origin: 'Brgy. Sumilihon Farm',
     status: 'Ready for Pickup',
   },
 ];
 
 export const TRIP_STAGES = [
-  { id: 0, label: 'Booking Confirmed', subtext: 'Driver notified & route locked', progress: 10 },
-  { id: 1, label: 'Heading to Farm', subtext: 'Truck en route to pickup pin', progress: 30 },
-  { id: 2, label: 'Loading Harvest', subtext: 'Weighing & securing sacks at farm', progress: 50 },
-  { id: 3, label: 'In Transit to Market', subtext: 'On highway toward destination', progress: 80 },
-  { id: 4, label: 'Delivered', subtext: 'Cargo unloaded at drop-off point', progress: 100 },
+  { id: 0, label: 'Confirmed', subtext: 'Driver accepted your booking', progress: 10 },
+  { id: 1, label: 'On the Way', subtext: 'Truck is driving to your farm', progress: 35 },
+  { id: 2, label: 'Loading', subtext: 'Loading your sacks onto the truck', progress: 55 },
+  { id: 3, label: 'Delivering', subtext: 'Truck is heading to the market', progress: 82 },
+  { id: 4, label: 'Arrived', subtext: 'Crops delivered safely!', progress: 100 },
 ];
+
+// Automatically estimates route fare & travel duration from location names
+// so farmers never need to know or input distances.
+export function calculateRouteEstimate(pickup, destination, truck) {
+  const combined = `${pickup.trim()}-${destination.trim()}`;
+  const hash = combined.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const autoDistanceKm = 8 + (hash % 18); // Realistic 8–25 km local farm-to-market range
+  const estimatedMinutes = Math.round(autoDistanceKm * 2.5);
+  const totalFare = truck ? truck.baseFare + truck.ratePerKm * autoDistanceKm : 0;
+
+  return { estimatedMinutes, totalFare };
+}
 
 export const LogisticsProvider = ({ children }) => {
   const [activeRole, setActiveRole] = useState('ordinary'); // 'ordinary' | 'business' | 'driver'
   const [trucks, setTrucks] = useState(INITIAL_TRUCKS);
   const [activeBooking, setActiveBooking] = useState(null);
   const [cropListings, setCropListings] = useState(INITIAL_LISTINGS);
-  const [autoSimulate, setAutoSimulate] = useState(true);
 
-  // Smoothly animate truck movement along the route when in transit
+  // Smoothly animate truck movement along the visual route
   useEffect(() => {
-    if (!activeBooking || !autoSimulate || activeBooking.stageIndex >= 4) return;
+    if (!activeBooking || activeBooking.stageIndex >= TRIP_STAGES.length - 1) return;
 
     const timer = setInterval(() => {
       setActiveBooking((prev) => {
@@ -104,10 +115,11 @@ export const LogisticsProvider = ({ children }) => {
     }, 600);
 
     return () => clearInterval(timer);
-  }, [activeBooking, autoSimulate]);
+  }, [activeBooking]);
 
-  const createBooking = ({ truck, pickup, destination, cropType, weightKg, estimatedKm }) => {
-    const totalFare = truck.baseFare + truck.ratePerKm * estimatedKm;
+  const createBooking = ({ truck, pickup, destination, cropType, weightKg }) => {
+    const { estimatedMinutes, totalFare } = calculateRouteEstimate(pickup, destination, truck);
+
     const newBooking = {
       id: `TRIP-${Math.floor(1000 + Math.random() * 9000)}`,
       truck,
@@ -115,11 +127,10 @@ export const LogisticsProvider = ({ children }) => {
       destination,
       cropType,
       weightKg: Number(weightKg),
-      estimatedKm,
+      estimatedMinutes,
       totalFare,
       stageIndex: 0,
       liveProgress: 5,
-      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setActiveBooking(newBooking);
   };
@@ -165,8 +176,6 @@ export const LogisticsProvider = ({ children }) => {
         completeAndClearBooking,
         cropListings,
         addCropListing,
-        autoSimulate,
-        setAutoSimulate,
       }}
     >
       {children}
