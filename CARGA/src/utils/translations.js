@@ -67,7 +67,7 @@ export const UI_STRINGS = {
     btnConfirmBooking: 'Confirm Booking',
     btnConfirmingBooking: 'Confirming...',
 
-    // Live Truck Tracker
+    // Live Truck Tracker & Fare Formula Breakdown
     waitingForDriverBadge: 'WAITING FOR DRIVER',
     deliveredBadge: 'DELIVERED',
     liveMapBadge: 'LIVE TRUCK MAP',
@@ -85,6 +85,9 @@ export const UI_STRINGS = {
     yourLoadHeader: 'Your Load',
     cropColon: 'Crop:',
     totalLoadColon: 'Total Load:',
+    distanceCostLabel: 'Distance ({km} km × ₱{rate}):',
+    handlingCostLabel: 'Handling ({kg} kg × ₱{rate}):',
+    multiplierLabel: 'Availability Multiplier (S):',
     totalPaymentLabel: 'Total Payment',
     noMiddlemanNote: 'Pay directly to the driver—no middleman fee',
 
@@ -184,7 +187,7 @@ export const UI_STRINGS = {
     btnConfirmBooking: 'Kumpirmahin ang Trak',
     btnConfirmingBooking: 'Kinukumpirma...',
 
-    // Live Truck Tracker
+    // Live Truck Tracker & Fare Formula Breakdown
     waitingForDriverBadge: 'NAGHIHINTAY SA DRAYBER',
     deliveredBadge: 'NAIHATID NA',
     liveMapBadge: 'LIVE NA MAPA NG TRAK',
@@ -202,6 +205,9 @@ export const UI_STRINGS = {
     yourLoadHeader: 'Ang Iyong Karga',
     cropColon: 'Pananim:',
     totalLoadColon: 'Kabuuang Karga:',
+    distanceCostLabel: 'Distansya ({km} km × ₱{rate}):',
+    handlingCostLabel: 'Pagkarga ({kg} kg × ₱{rate}):',
+    multiplierLabel: 'Availability Multiplier (S):',
     totalPaymentLabel: 'Kabuuang Babayaran',
     noMiddlemanNote: 'Direktang bayad sa drayber—walang kaltas ng middleman',
 
@@ -301,7 +307,7 @@ export const UI_STRINGS = {
     btnConfirmBooking: 'Kumpirmaha ang Trak',
     btnConfirmingBooking: 'Gikumpirma...',
 
-    // Live Truck Tracker
+    // Live Truck Tracker & Fare Formula Breakdown
     waitingForDriverBadge: 'NAGHULAT SA DRAYBER',
     deliveredBadge: 'NAHATOD NA',
     liveMapBadge: 'LIVE NGA MAPA SA TRAK',
@@ -319,6 +325,9 @@ export const UI_STRINGS = {
     yourLoadHeader: 'Ang Imong Karga',
     cropColon: 'Tanom:',
     totalLoadColon: 'Tibuok Karga:',
+    distanceCostLabel: 'Distansya ({km} km × ₱{rate}):',
+    handlingCostLabel: 'Pagkarga ({kg} kg × ₱{rate}):',
+    multiplierLabel: 'Availability Multiplier (S):',
     totalPaymentLabel: 'Tibuok Bayranan',
     noMiddlemanNote: 'Direktang bayad sa drayber—walay kaltas sa middleman',
 

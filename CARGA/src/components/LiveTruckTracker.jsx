@@ -26,6 +26,7 @@ export default function LiveTruckTracker() {
     weightKg,
     estimatedMinutes,
     totalFare,
+    fareBreakdown,
     stageIndex,
     liveProgress,
   } = activeBooking;
@@ -234,7 +235,7 @@ export default function LiveTruckTracker() {
           </div>
         </div>
 
-        {/* Driver Contact & Load Summary */}
+        {/* Driver Contact, Load & Formula Fare Breakdown */}
         <div className="p-5 sm:p-6 flex flex-col justify-between bg-white">
           <div>
             <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3">
@@ -260,10 +261,10 @@ export default function LiveTruckTracker() {
               </a>
             </div>
 
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3">
+            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2.5">
               {t('yourLoadHeader')}
             </h4>
-            <div className="space-y-2.5 text-sm">
+            <div className="space-y-2 text-xs sm:text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 flex items-center gap-1.5">
                   <Package className="w-4 h-4 text-slate-400" /> {t('cropColon')}
@@ -278,10 +279,43 @@ export default function LiveTruckTracker() {
                   {t('sacksUnit', { count: sackCount })} ({weightKg.toLocaleString()} kg)
                 </span>
               </div>
+
+              {fareBreakdown && (
+                <div className="pt-2.5 mt-2.5 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                  <div className="flex justify-between">
+                    <span>
+                      {t('distanceCostLabel', {
+                        km: fareBreakdown.distanceKm,
+                        rate: fareBreakdown.ratePerKm,
+                      })}
+                    </span>
+                    <span className="font-semibold text-slate-800">
+                      ₱{fareBreakdown.distanceCost.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>
+                      {t('handlingCostLabel', {
+                        kg: weightKg.toLocaleString(),
+                        rate: fareBreakdown.handlingRatePerKg,
+                      })}
+                    </span>
+                    <span className="font-semibold text-slate-800">
+                      ₱{fareBreakdown.handlingCost.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>{t('multiplierLabel')}</span>
+                    <span className="font-semibold text-slate-800">
+                      {fareBreakdown.availabilityMultiplier.toFixed(2)}×
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-slate-200">
+          <div className="mt-5 pt-4 border-t border-slate-200">
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-bold text-slate-700">{t('totalPaymentLabel')}</span>
               <span className="text-2xl font-extrabold text-emerald-700">

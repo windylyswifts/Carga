@@ -233,7 +233,7 @@ export default function DriverDashboard() {
                   </div>
                 </div>
 
-                {/* Cargo, Farmer & Payout */}
+                {/* Cargo, Farmer & Formula Payout */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="p-4 rounded-xl border border-slate-200">
                     <span className="text-xs font-bold text-slate-400 flex items-center gap-1">
@@ -268,6 +268,13 @@ export default function DriverDashboard() {
                     <p className="text-2xl font-extrabold text-emerald-700 mt-1">
                       ₱{activeBooking.totalFare.toLocaleString()}
                     </p>
+                    {activeBooking.fareBreakdown && (
+                      <p className="text-[11px] font-semibold text-emerald-800 mt-0.5">
+                        (₱{activeBooking.fareBreakdown.distanceCost} + ₱
+                        {activeBooking.fareBreakdown.handlingCost}) ×{' '}
+                        {activeBooking.fareBreakdown.availabilityMultiplier.toFixed(2)}×
+                      </p>
+                    )}
                     <p className="text-[11px] font-semibold text-emerald-700">
                       {t('directCashNote')}
                     </p>

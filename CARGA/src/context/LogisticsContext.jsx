@@ -11,8 +11,8 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Isuzu Elf 6-Wheeler Truck',
     plateNumber: 'KAG 4821',
     capacityKg: 3500,
-    baseFare: 850,
-    ratePerKm: 45,
+    ratePerKm: 45, // R_d: Transportation rate per km (₱/km)
+    handlingRatePerKg: 0.5, // R_w: Cargo handling rate per kg (₱/kg)
     rating: 4.9,
     tripsCompleted: 142,
     totalEarnings: 48500,
@@ -26,8 +26,8 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Suzuki Multicab (High-Side)',
     plateNumber: 'LMA 9034',
     capacityKg: 800,
-    baseFare: 400,
-    ratePerKm: 25,
+    ratePerKm: 28, // R_d
+    handlingRatePerKg: 0.35, // R_w
     rating: 4.8,
     tripsCompleted: 89,
     totalEarnings: 24300,
@@ -41,8 +41,8 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Mitsubishi Canter Mini-Dump',
     plateNumber: 'NDF 1129',
     capacityKg: 2000,
-    baseFare: 650,
-    ratePerKm: 35,
+    ratePerKm: 36, // R_d
+    handlingRatePerKg: 0.45, // R_w
     rating: 4.7,
     tripsCompleted: 64,
     totalEarnings: 31200,
@@ -56,8 +56,8 @@ const INITIAL_TRUCKS = [
     vehicleModel: 'Foton Tornado Cargo Truck',
     plateNumber: 'ZBX 7742',
     capacityKg: 4500,
-    baseFare: 1100,
-    ratePerKm: 55,
+    ratePerKm: 55, // R_d
+    handlingRatePerKg: 0.6, // R_w
     rating: 4.9,
     tripsCompleted: 210,
     totalEarnings: 79400,
@@ -74,14 +74,56 @@ export const TRIP_STAGES = [
   { id: 4, labelKey: 'stage4Label', subKey: 'stage4Sub', driverBtnKey: null, progress: 100 },
 ];
 
-export function calculateRouteEstimate(pickup, destination, truck) {
+// Derives Demand & Availability Multiplier (S) from current online truck supply
+export function getAvailabilityMultiplier(trucks) {
+  const onlineCount = trucks.filter((tr) => tr.isAvailable).length;
+  if (onlineCount <= 1) return 1.25;
+  if (onlineCount === 2) return 1.1;
+  return 1.0;
+}
+
+// Stage 1 & Stage 2 Fare Calculation Engine
+// Stage 1: TripCost = [(D * R_d) + (W * R_w)] * S
+// Stage 2: CustomerFare = TripCost * (CustomerWeight / TotalCargoWeight)
+export function calculateTripFare({
+  pickup,
+  destination,
+  truck,
+  customerWeightKg,
+  totalCargoWeightKg = customerWeightKg,
+  availabilityMultiplier = 1.0,
+}) {
   const combined = `${String(pickup).trim()}-${String(destination).trim()}`;
   const hash = combined.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const autoDistanceKm = 8 + (hash % 18);
-  const estimatedMinutes = Math.round(autoDistanceKm * 2.5);
-  const totalFare = truck ? truck.baseFare + truck.ratePerKm * autoDistanceKm : 0;
 
-  return { estimatedMinutes, totalFare };
+  const distanceKm = 8 + (hash % 18); // D: Total distance travelled (km)
+  const estimatedMinutes = Math.round(distanceKm * 2.5);
+
+  const ratePerKm = truck.ratePerKm; // R_d
+  const handlingRatePerKg = truck.handlingRatePerKg; // R_w
+  const effectiveTotalWeight = Math.max(Number(totalCargoWeightKg), Number(customerWeightKg), 1);
+
+  const distanceCost = distanceKm * ratePerKm;
+  const handlingCost = effectiveTotalWeight * handlingRatePerKg;
+
+  // Stage 1: Total Trip Cost
+  const tripCost = Math.round((distanceCost + handlingCost) * availabilityMultiplier);
+
+  // Stage 2: Customer Fare Allocation
+  const weightShareRatio = Number(customerWeightKg) / effectiveTotalWeight;
+  const customerFare = Math.round(tripCost * weightShareRatio);
+
+  return {
+    distanceKm,
+    estimatedMinutes,
+    ratePerKm,
+    handlingRatePerKg,
+    distanceCost: Math.round(distanceCost),
+    handlingCost: Math.round(handlingCost),
+    availabilityMultiplier,
+    tripCost,
+    customerFare,
+  };
 }
 
 export const LogisticsProvider = ({ children }) => {
@@ -146,8 +188,17 @@ export const LogisticsProvider = ({ children }) => {
     sackCount,
     sackWeightKg,
   }) => {
-    const { estimatedMinutes, totalFare } = calculateRouteEstimate(pickup, destination, truck);
     const weightKg = Number(sackCount) * Number(sackWeightKg);
+    const availabilityMultiplier = getAvailabilityMultiplier(trucks);
+
+    const fareBreakdown = calculateTripFare({
+      pickup,
+      destination,
+      truck,
+      customerWeightKg: weightKg,
+      totalCargoWeightKg: weightKg,
+      availabilityMultiplier,
+    });
 
     const [localizedPickup, localizedDestination, localizedCrop] = await Promise.all([
       translateDynamicText(pickup),
@@ -166,8 +217,9 @@ export const LogisticsProvider = ({ children }) => {
       sackCount: Number(sackCount),
       sackWeightKg: Number(sackWeightKg),
       weightKg,
-      estimatedMinutes,
-      totalFare,
+      estimatedMinutes: fareBreakdown.estimatedMinutes,
+      totalFare: fareBreakdown.customerFare,
+      fareBreakdown,
       stageIndex: 0,
       liveProgress: 5,
     });
