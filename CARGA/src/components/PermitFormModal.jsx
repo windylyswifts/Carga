@@ -56,8 +56,8 @@ export default function PermitFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-xl rounded-2xl border-2 border-amber-500 shadow-2xl overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-backdrop-fade">
+      <div className="bg-white w-full max-w-xl rounded-2xl border-2 border-amber-500 shadow-2xl overflow-hidden my-8 animate-modal-pop">
         {/* Top Modal Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
@@ -75,13 +75,13 @@ export default function PermitFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Validation Reason Alert (when intercepted after Step 2) */}
+        {/* Validation Reason Alert */}
         {triggerReasons && (triggerReasons.exceedsWeight || triggerReasons.crossesRoute) && (
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-start gap-2.5">
             <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
@@ -101,7 +101,6 @@ export default function PermitFormModal({
 
         {/* 5-Attribute Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Attribute 1 */}
           <div>
             <label className="block text-xs sm:text-sm font-extrabold text-slate-800 mb-1.5">
               {t('permitAttr1Label')}
@@ -112,11 +111,10 @@ export default function PermitFormModal({
               value={plantDetails}
               onChange={(e) => setPlantDetails(e.target.value)}
               placeholder={t('permitAttr1Placeholder')}
-              className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold focus:outline-none focus:border-amber-500"
+              className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold transition-colors duration-150 focus:outline-none focus:border-amber-500"
             />
           </div>
 
-          {/* Attribute 2 */}
           <div>
             <label className="block text-xs sm:text-sm font-extrabold text-slate-800 mb-1.5">
               {t('permitAttr2Label')}
@@ -127,11 +125,10 @@ export default function PermitFormModal({
               value={applicantFullName}
               onChange={(e) => setApplicantFullName(e.target.value)}
               placeholder={t('permitAttr2Placeholder')}
-              className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold focus:outline-none focus:border-amber-500"
+              className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold transition-colors duration-150 focus:outline-none focus:border-amber-500"
             />
           </div>
 
-          {/* Attribute 3 */}
           <div>
             <label className="block text-xs sm:text-sm font-extrabold text-slate-800 mb-1.5">
               {t('permitAttr3Label')}
@@ -142,11 +139,10 @@ export default function PermitFormModal({
               value={plantSource}
               onChange={(e) => setPlantSource(e.target.value)}
               placeholder={t('permitAttr3Placeholder')}
-              className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold focus:outline-none focus:border-amber-500"
+              className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold transition-colors duration-150 focus:outline-none focus:border-amber-500"
             />
           </div>
 
-          {/* Attribute 4 & Attribute 5 */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs sm:text-sm font-extrabold text-slate-800 mb-1.5">
@@ -158,7 +154,7 @@ export default function PermitFormModal({
                 value={declaredConveyance}
                 onChange={(e) => setDeclaredConveyance(e.target.value)}
                 placeholder={t('permitAttr4Placeholder')}
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold focus:outline-none focus:border-amber-500"
+                className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold transition-colors duration-150 focus:outline-none focus:border-amber-500"
               />
             </div>
 
@@ -173,7 +169,7 @@ export default function PermitFormModal({
                 value={weightInKilos}
                 onChange={(e) => setWeightInKilos(e.target.value)}
                 placeholder="e.g., 8500"
-                className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold focus:outline-none focus:border-amber-500"
+                className="w-full px-4 py-3 rounded-xl border-2 border-slate-300 text-sm font-semibold transition-colors duration-150 focus:outline-none focus:border-amber-500"
               />
             </div>
           </div>
@@ -182,7 +178,7 @@ export default function PermitFormModal({
             <button
               type="submit"
               disabled={!isFormValid || isAuthenticating}
-              className="w-full py-4 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-extrabold text-base flex items-center justify-center gap-2 shadow-sm transition cursor-pointer"
+              className="w-full py-4 px-6 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] disabled:bg-slate-200 disabled:text-slate-400 text-slate-950 font-extrabold text-base flex items-center justify-center gap-2 shadow-sm transition-all duration-150 cursor-pointer"
             >
               <ShieldCheck className="w-5 h-5" />
               <span>{isAuthenticating ? t('btnAuthenticating') : t('btnAvailPermitAuth')}</span>

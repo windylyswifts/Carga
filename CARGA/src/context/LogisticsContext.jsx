@@ -68,6 +68,37 @@ const INITIAL_TRUCKS = [
   },
 ];
 
+const INITIAL_ACTIVITY_LOGS = [
+  {
+    id: 'ACT-102',
+    type: 'trip',
+    title: 'Delivered 20 Sacks of Cardava Bananas (1,000 kg)',
+    subtitle: 'Brgy. Sumilihon Farm → Langihan Public Market • Isuzu Elf (KAG 4821)',
+    amountText: '₱1,130',
+    status: 'Completed',
+    timestamp: 'Nov 15, 2026 • 8:40 AM',
+  },
+  {
+    id: 'ACT-101',
+    type: 'permit',
+    title: 'Plant Transport Permit Cleared (PTP-2026-48192)',
+    subtitle: 'Main Road Clearance • 1,500 kg Fresh Harvest',
+    amountText: 'Verified',
+    status: 'Approved',
+    timestamp: 'Nov 12, 2026 • 2:15 PM',
+  },
+];
+
+const INITIAL_NOTIFICATIONS = [
+  {
+    id: 'NTF-1',
+    title: 'Welcome to CARGA',
+    message: 'Book verified hauling trucks directly or apply for a Plant Transport Permit anytime.',
+    timestamp: 'Today',
+    read: false,
+  },
+];
+
 export const TRIP_STAGES = [
   { id: 0, labelKey: 'stage0Label', subKey: 'stage0Sub', driverBtnKey: 'stage0DriverBtn', progress: 5 },
   { id: 1, labelKey: 'stage1Label', subKey: 'stage1Sub', driverBtnKey: 'stage1DriverBtn', progress: 35 },
@@ -76,9 +107,6 @@ export const TRIP_STAGES = [
   { id: 4, labelKey: 'stage4Label', subKey: 'stage4Sub', driverBtnKey: null, progress: 100 },
 ];
 
-// Validates whether a Transport Permit is required:
-// 1. Cargo weight > 8,000 kg
-// 2. Route uses a main road / highway or crosses city-to-city boundaries
 export function evaluatePermitRequirement({ weightKg, pickup, destination, isMainRoadOrIntercity }) {
   const exceedsWeight = Number(weightKg) > PERMIT_WEIGHT_LIMIT_KG;
 
@@ -161,9 +189,17 @@ export const LogisticsProvider = ({ children }) => {
   const [activeRole, setActiveRole] = useState('ordinary');
   const [trucks, setTrucks] = useState(INITIAL_TRUCKS);
   const [activeBooking, setActiveBooking] = useState(null);
-
-  // Transport Permit State: null | { id, status: 'pending' | 'approved', issuedAt, ...5 attributes }
   const [transportPermit, setTransportPermit] = useState(null);
+
+  // Farmer Profile, Activity Logs & Notifications
+  const [farmerProfile, setFarmerProfile] = useState({
+    fullName: 'Juan Dela Cruz',
+    farmLocation: 'Brgy. Sumilihon Farm',
+    phone: '+63 919 304 5512',
+    coopName: 'Sumilihon Growers Coop',
+  });
+  const [activityLogs, setActivityLogs] = useState(INITIAL_ACTIVITY_LOGS);
+  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
 
   const t = (key, params = {}) => {
     const dict = UI_STRINGS[language] || UI_STRINGS.en;
@@ -172,6 +208,47 @@ export const LogisticsProvider = ({ children }) => {
       template = template.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramVal));
     }
     return template;
+  };
+
+  const formatNow = () =>
+    new Date().toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+
+  const pushActivityLog = (entry) => {
+    setActivityLogs((prev) => [
+      {
+        id: `ACT-${Date.now()}-${Math.floor(Math.random() * 100)}`,
+        timestamp: formatNow(),
+        ...entry,
+      },
+      ...prev,
+    ]);
+  };
+
+  const pushNotification = ({ title, message }) => {
+    setNotifications((prev) => [
+      {
+        id: `NTF-${Date.now()}-${Math.floor(Math.random() * 100)}`,
+        title,
+        message,
+        timestamp: 'Just now',
+        read: false,
+      },
+      ...prev,
+    ]);
+  };
+
+  const markAllNotificationsRead = () => {
+    setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+  };
+
+  const updateFarmerProfile = (updates) => {
+    setFarmerProfile((prev) => ({ ...prev, ...updates }));
   };
 
   useEffect(() => {
@@ -213,7 +290,6 @@ export const LogisticsProvider = ({ children }) => {
     );
   };
 
-  // Submit and authenticate permit request -> sets booking on hold ('pending')
   const submitPermitApplication = ({
     plantDetails,
     applicantFullName,
@@ -230,21 +306,51 @@ export const LogisticsProvider = ({ children }) => {
       plantSource: String(plantSource).trim(),
       declaredConveyance: String(declaredConveyance).trim(),
       weightInKilos: Number(weightInKilos),
-      submittedAt: new Date().toLocaleString(),
+      submittedAt: formatNow(),
       issuedAt: null,
     };
     setTransportPermit(newPermit);
+
+    pushActivityLog({
+      type: 'permit',
+      refId: permitId,
+      title: `Permit Application Submitted (${permitId})`,
+      subtitle: `${newPermit.plantDetails} • ${newPermit.weightInKilos.toLocaleString()} kg`,
+      amountText: 'On Hold',
+      status: 'Pending',
+    });
+
+    pushNotification({
+      title: 'Transport Permit Submitted',
+      message: `Application ${permitId} (${newPermit.weightInKilos.toLocaleString()} kg) is now awaiting clearance.`,
+    });
+
     return newPermit;
   };
 
-  // Approve permit so farmer can resume booking & driver receives soft copy
   const approveTransportPermit = () => {
     setTransportPermit((prev) => {
       if (!prev) return null;
+      const issuedAt = formatNow();
+
+      pushActivityLog({
+        type: 'permit',
+        refId: prev.id,
+        title: `Plant Transport Permit Approved (${prev.id})`,
+        subtitle: `${prev.plantDetails} • Soft Copy Ready for Driver`,
+        amountText: 'Verified',
+        status: 'Approved',
+      });
+
+      pushNotification({
+        title: `Permit Approved (${prev.id})`,
+        message: 'Your official soft copy is ready and can now be attached to your truck booking.',
+      });
+
       return {
         ...prev,
         status: 'approved',
-        issuedAt: new Date().toLocaleString(),
+        issuedAt,
       };
     });
   };
@@ -275,11 +381,16 @@ export const LogisticsProvider = ({ children }) => {
       translateDynamicText(cropType),
     ]);
 
+    const bookingId = `TRIP-${Math.floor(1000 + Math.random() * 9000)}`;
+    const farmerDisplay = farmerProfile.coopName
+      ? `${farmerProfile.fullName} (${farmerProfile.coopName})`
+      : farmerProfile.fullName;
+
     setActiveBooking({
-      id: `TRIP-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: bookingId,
       truck,
-      farmerName: transportPermit?.applicantFullName || 'Juan Dela Cruz (Farmstead Coop)',
-      farmerPhone: '+63 919 304 5512',
+      farmerName: transportPermit?.applicantFullName || farmerDisplay,
+      farmerPhone: farmerProfile.phone,
       pickup: localizedPickup,
       destination: localizedDestination,
       cropType: localizedCrop,
@@ -293,6 +404,20 @@ export const LogisticsProvider = ({ children }) => {
       stageIndex: 0,
       liveProgress: 5,
     });
+
+    pushActivityLog({
+      type: 'trip',
+      refId: bookingId,
+      title: `Booked ${truck.vehicleModel} (${Number(sackCount)} Sacks ${cropType})`,
+      subtitle: `${pickup} → ${destination} • ${weightKg.toLocaleString()} kg`,
+      amountText: `₱${fareBreakdown.customerFare.toLocaleString()}`,
+      status: 'In Progress',
+    });
+
+    pushNotification({
+      title: `Truck Request Sent (#${bookingId})`,
+      message: `Waiting for ${truck.driverName} (${truck.vehicleModel}) to accept your ${weightKg.toLocaleString()} kg harvest load.`,
+    });
   };
 
   const advanceTripStage = () => {
@@ -300,7 +425,12 @@ export const LogisticsProvider = ({ children }) => {
       if (!prev || prev.stageIndex >= TRIP_STAGES.length - 1) return prev;
       const nextStage = prev.stageIndex + 1;
 
-      if (nextStage === TRIP_STAGES.length - 1) {
+      if (nextStage === 1) {
+        pushNotification({
+          title: 'Driver Accepted Your Trip',
+          message: `${prev.truck.driverName} is now on the way to your farm.`,
+        });
+      } else if (nextStage === TRIP_STAGES.length - 1) {
         setTrucks((currentTrucks) =>
           currentTrucks.map((tr) =>
             tr.id === prev.truck.id
@@ -312,6 +442,17 @@ export const LogisticsProvider = ({ children }) => {
               : tr
           )
         );
+
+        setActivityLogs((logs) =>
+          logs.map((entry) =>
+            entry.refId === prev.id ? { ...entry, status: 'Completed' } : entry
+          )
+        );
+
+        pushNotification({
+          title: 'Harvest Delivered Safely!',
+          message: `${prev.truck.driverName} completed delivery for trip #${prev.id}.`,
+        });
       }
 
       return {
@@ -322,7 +463,21 @@ export const LogisticsProvider = ({ children }) => {
     });
   };
 
-  const cancelBooking = () => setActiveBooking(null);
+  const cancelBooking = () => {
+    if (activeBooking) {
+      const cancelledId = activeBooking.id;
+      setActivityLogs((logs) =>
+        logs.map((entry) =>
+          entry.refId === cancelledId ? { ...entry, status: 'Cancelled' } : entry
+        )
+      );
+      pushNotification({
+        title: `Booking Cancelled (#${cancelledId})`,
+        message: 'Your hauling request was cancelled. You can book another truck anytime.',
+      });
+    }
+    setActiveBooking(null);
+  };
 
   const completeAndClearBooking = () => {
     setActiveBooking(null);
@@ -348,6 +503,11 @@ export const LogisticsProvider = ({ children }) => {
         transportPermit,
         submitPermitApplication,
         approveTransportPermit,
+        farmerProfile,
+        updateFarmerProfile,
+        activityLogs,
+        notifications,
+        markAllNotificationsRead,
       }}
     >
       {children}
@@ -355,4 +515,4 @@ export const LogisticsProvider = ({ children }) => {
   );
 };
 
-export const useLogistics = () => useContext(LogisticsContext); 
+export const useLogistics = () => useContext(LogisticsContext);

@@ -1,6 +1,7 @@
 import React from 'react';
-import { ShieldCheck, FileCheck2, X, QrCode } from 'lucide-react';
+import { ShieldCheck, X, QrCode } from 'lucide-react';
 import { useLogistics } from '../context/LogisticsContext';
+import CargaLogo from './CargaLogo';
 
 export default function PermitSoftCopyModal({ permit, isOpen, onClose }) {
   const { t } = useLogistics();
@@ -8,32 +9,31 @@ export default function PermitSoftCopyModal({ permit, isOpen, onClose }) {
   if (!isOpen || !permit) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white w-full max-w-lg rounded-2xl border-2 border-emerald-600 shadow-2xl overflow-hidden my-8">
-        {/* Top Official Bar */}
-        <div className="bg-emerald-950 text-white px-6 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <FileCheck2 className="w-6 h-6 text-emerald-400 shrink-0" />
-            <div>
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-300 block">
-                {t('softCopyHeader')}
-              </span>
-              <span className="font-mono text-sm font-bold text-white">{permit.id}</span>
-            </div>
-          </div>
+    <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-backdrop-fade">
+      <div className="bg-white w-full max-w-lg rounded-2xl border-2 border-emerald-600 shadow-2xl overflow-hidden my-8 animate-modal-pop">
+        {/* Top Official Bar with CARGA Horizontal Logo */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between gap-3">
+          <CargaLogo variant="horizontal" className="h-11 sm:h-12 w-auto object-contain" />
 
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg text-emerald-200 hover:text-white hover:bg-emerald-900 transition cursor-pointer"
+            className="p-2 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors duration-150 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Sub-header */}
+        <div className="bg-emerald-950 text-white px-6 py-2.5 flex items-center justify-between text-xs">
+          <span className="font-extrabold uppercase tracking-wider text-emerald-300">
+            {t('softCopyHeader')}
+          </span>
+          <span className="font-mono font-bold text-white">{permit.id}</span>
+        </div>
+
         {/* Official Soft Copy Body */}
         <div className="p-6 space-y-5">
-          {/* Verification Stamp & QR Visual */}
           <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
             <div>
               <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-800 bg-emerald-200/80 px-2.5 py-1 rounded-full">
@@ -52,7 +52,6 @@ export default function PermitSoftCopyModal({ permit, isOpen, onClose }) {
             </div>
           </div>
 
-          {/* All 5 Authenticated Permit Attributes */}
           <div className="space-y-3 text-sm divide-y divide-slate-100">
             <div className="pt-1">
               <span className="text-xs font-bold text-slate-400 block">
@@ -98,7 +97,7 @@ export default function PermitSoftCopyModal({ permit, isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-3.5 px-5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm transition cursor-pointer"
+            className="w-full py-3.5 px-5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-extrabold text-sm transition-all duration-150 cursor-pointer"
           >
             {t('btnCloseModal')}
           </button>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MapPin,
   Sprout,
@@ -13,34 +13,57 @@ import {
   Clock,
   ShieldCheck,
   Route,
+  Truck,
+  Home,
+  History,
+  Bell,
+  User,
+  ChevronRight,
+  Phone,
+  Building2,
+  Check,
 } from 'lucide-react';
 import { useLogistics, evaluatePermitRequirement } from '../context/LogisticsContext';
+import { LANGUAGES } from '../utils/translations';
 import LiveTruckTracker from './LiveTruckTracker';
 import PermitFormModal from './PermitFormModal';
 import PermitSoftCopyModal from './PermitSoftCopyModal';
 
 export default function OrdinaryDashboard() {
   const {
+    language,
+    setLanguage,
     t,
     trucks,
     activeBooking,
     createBooking,
     transportPermit,
     approveTransportPermit,
+    farmerProfile,
+    updateFarmerProfile,
+    activityLogs,
+    notifications,
+    markAllNotificationsRead,
   } = useLogistics();
+
+  // Bottom Navigation Tab: 'home' | 'history' | 'notifications' | 'profile'
+  const [activeTab, setActiveTab] = useState('home');
+
+  // Toggles between the Farmer Home Landing Page and the 3-Step Booking Form
+  const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
 
   // 3-Step Stepper State: 1 = Locations | 2 = Crop & Sacks | 3 = Capable Trucks
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Step 1 Inputs (clean inputs with zero extra wording underneath)
-  const [pickup, setPickup] = useState('Brgy. Sumilihon Farm');
+  // Step 1 Inputs (initialized from farmerProfile.farmLocation)
+  const [pickup, setPickup] = useState(farmerProfile.farmLocation);
   const [destination, setDestination] = useState('Langihan Public Market');
   const [isMainRoadOrIntercity, setIsMainRoadOrIntercity] = useState(false);
 
-  // Step 2 Inputs
+  // Step 2 Inputs (Direct typing + +/- controls)
   const [cropType, setCropType] = useState('Bananas (Saba)');
   const [sackWeightKg, setSackWeightKg] = useState(50);
-  const [sackCount, setSackCount] = useState(12);
+  const [sackCountInput, setSackCountInput] = useState('12');
 
   // Step 3 Selection
   const [selectedTruckId, setSelectedTruckId] = useState(null);
@@ -52,17 +75,71 @@ export default function OrdinaryDashboard() {
   const [bookingOnHoldForPermit, setBookingOnHoldForPermit] = useState(false);
   const [permitTriggerInfo, setPermitTriggerInfo] = useState(null);
 
-  const totalWeightKg = sackCount * sackWeightKg;
+  // Profile Edit Form State
+  const [profileDraft, setProfileDraft] = useState(farmerProfile);
+  const [profileSaved, setProfileSaved] = useState(false);
+
+  useEffect(() => {
+    setProfileDraft(farmerProfile);
+  }, [farmerProfile]);
+
+  const unreadNotifCount = notifications.filter((n) => !n.read).length;
+
+  const numericSackCount = Math.max(0, parseInt(sackCountInput, 10) || 0);
+  const totalWeightKg = numericSackCount * sackWeightKg;
 
   const capableTrucks = trucks.filter(
     (truck) => truck.isAvailable && truck.capacityKg >= totalWeightKg
   );
 
   const canProceedStep1 = pickup.trim().length > 0 && destination.trim().length > 0;
-  const canProceedStep2 = cropType.trim().length > 0 && sackCount >= 1;
+  const canProceedStep2 = cropType.trim().length > 0 && numericSackCount >= 1;
 
-  // Step 2 -> Step 3 Transition with Weight (> 8,000 kg) & Main Road / City-to-City Validation
+  const hasValidApprovedPermit =
+    transportPermit?.status === 'approved' &&
+    Number(transportPermit.weightInKilos) >= totalWeightKg;
+
+  const handleOpenBookingForm = () => {
+    setPickup(farmerProfile.farmLocation || 'Brgy. Sumilihon Farm');
+    setCurrentStep(1);
+    setSelectedTruckId(null);
+    setBookingOnHoldForPermit(false);
+    setActiveTab('home');
+    setIsBookingFormOpen(true);
+  };
+
+  const handlePermitCardClick = () => {
+    if (transportPermit?.status === 'approved') {
+      setIsSoftCopyOpen(true);
+      return;
+    }
+    setPermitTriggerInfo(null);
+    setIsPermitModalOpen(true);
+  };
+
+  const handleSackInputChange = (e) => {
+    const raw = e.target.value;
+    if (raw === '') {
+      setSackCountInput('');
+      return;
+    }
+    const digitsOnly = raw.replace(/\D/g, '');
+    setSackCountInput(digitsOnly);
+  };
+
+  const handleSackInputBlur = () => {
+    setSackCountInput(String(Math.max(1, numericSackCount)));
+  };
+
+  const adjustSackCount = (delta) => {
+    const next = Math.max(1, numericSackCount + delta);
+    setSackCountInput(String(next));
+  };
+
   const handleStep2Next = () => {
+    if (!canProceedStep2) return;
+    setSackCountInput(String(numericSackCount));
+
     const validation = evaluatePermitRequirement({
       weightKg: totalWeightKg,
       pickup,
@@ -70,12 +147,11 @@ export default function OrdinaryDashboard() {
       isMainRoadOrIntercity,
     });
 
-    if (validation.required && transportPermit?.status !== 'approved') {
+    if (validation.required && !hasValidApprovedPermit) {
       setPermitTriggerInfo(validation);
       setBookingOnHoldForPermit(true);
 
-      // If farmer has not submitted a permit yet, open the 5-attribute permit form immediately
-      if (!transportPermit) {
+      if (transportPermit?.status !== 'pending') {
         setIsPermitModalOpen(true);
       }
       return;
@@ -96,13 +172,24 @@ export default function OrdinaryDashboard() {
       pickup,
       destination,
       cropType,
-      sackCount,
+      sackCount: numericSackCount,
       sackWeightKg,
     });
     setIsConfirming(false);
     setSelectedTruckId(null);
     setBookingOnHoldForPermit(false);
     setCurrentStep(1);
+    setIsBookingFormOpen(false);
+    setActiveTab('home');
+  };
+
+  const handleSaveProfile = (e) => {
+    e.preventDefault();
+    if (!profileDraft.fullName.trim()) return;
+    updateFarmerProfile(profileDraft);
+    setPickup(profileDraft.farmLocation);
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 2200);
   };
 
   const steps = [
@@ -112,403 +199,881 @@ export default function OrdinaryDashboard() {
   ];
 
   const prefillPermitData = {
-    plantDetails: `${cropType} — ${sackCount} Sacks (${sackWeightKg} kg/sack)`,
-    plantSource: pickup,
-    weightInKilos: totalWeightKg,
+    plantDetails: isBookingFormOpen
+      ? `${cropType} — ${numericSackCount} Sacks (${sackWeightKg} kg/sack)`
+      : '',
+    applicantFullName: farmerProfile.fullName,
+    plantSource: isBookingFormOpen ? pickup : farmerProfile.farmLocation,
+    weightInKilos: isBookingFormOpen ? totalWeightKg : '',
   };
 
+  const navItems = [
+    { id: 'home', label: t('navHome'), icon: Home },
+    { id: 'history', label: t('navHistory'), icon: History },
+    { id: 'notifications', label: t('navNotifications'), icon: Bell, badge: unreadNotifCount },
+    { id: 'profile', label: t('navProfile'), icon: User },
+  ];
+
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-      {/* Header + High-Contrast Color-Theory "Apply for Permit" Button */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <span className="inline-block text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
-            {t('farmerBadge')}
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">
-            {t('farmerTitle')}
-          </h1>
-        </div>
-
-        {/* High-Visibility Amber/Gold CTA against Emerald/Slate palette */}
-        <div className="flex items-center gap-2">
-          {transportPermit?.status === 'approved' ? (
-            <button
-              type="button"
-              onClick={() => setIsSoftCopyOpen(true)}
-              className="px-4 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-sm transition cursor-pointer"
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-200" />
-              <span>{t('permitActiveChip', { id: transportPermit.id })}</span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setPermitTriggerInfo(null);
-                setIsPermitModalOpen(true);
-              }}
-              className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 border-2 border-amber-600 font-extrabold text-sm flex items-center gap-2 shadow-md transition cursor-pointer"
-            >
-              <FileCheck2 className="w-5 h-5" />
-              <span>
-                {transportPermit?.status === 'pending'
-                  ? t('permitPendingChip', { id: transportPermit.id })
-                  : t('btnApplyPermitTop')}
+    <>
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* =========================================================
+            TAB 1A: FARMER HOME LANDING PAGE
+           ========================================================= */}
+        {activeTab === 'home' && !isBookingFormOpen && (
+          <div key="farmer-home" className="space-y-6 animate-fade-slide">
+            {/* Greeting Header */}
+            <div>
+              <span className="inline-block text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
+                {t('farmerBadge')}
               </span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Live Map Tracker (Shown whenever a trip is active) */}
-      {activeBooking ? (
-        <LiveTruckTracker />
-      ) : (
-        <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-2xs overflow-hidden">
-          {/* Top Stepper Progress Header */}
-          <div className="bg-slate-50 border-b border-slate-200 px-5 sm:px-7 py-4">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-3">
-              <span>{t('stepIndicator', { current: currentStep })}</span>
-              <span className="text-emerald-700 font-extrabold">
-                {steps.find((s) => s.num === currentStep)?.label}
-              </span>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5">
+                {t('farmerTitle', { name: farmerProfile.fullName.split(' ')[0] })}
+              </h1>
+              <p className="text-sm font-medium text-slate-500 mt-0.5">{t('farmerSubtitle')}</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              {steps.map((step) => {
-                const isCompleted = step.num < currentStep;
-                const isCurrent = step.num === currentStep;
-                return (
-                  <div key={step.num} className="flex flex-col">
-                    <div
-                      className={`h-2.5 rounded-full transition-all ${
-                        isCompleted || isCurrent ? 'bg-emerald-600' : 'bg-slate-200'
-                      }`}
-                    />
-                    <span
-                      className={`text-xs mt-1.5 ${
-                        isCurrent
-                          ? 'font-extrabold text-emerald-800'
-                          : isCompleted
-                          ? 'font-semibold text-slate-700'
-                          : 'font-medium text-slate-400'
-                      }`}
-                    >
-                      {step.num}. {step.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            {/* Live Trip Tracker (Shown right on Home if a trip is active) */}
+            {activeBooking && (
+              <div className="animate-fade-slide">
+                <LiveTruckTracker />
+              </div>
+            )}
 
-          {/* STEP 1: LOCATIONS + MAIN ROAD / CITY-TO-CITY SELECTOR */}
-          {currentStep === 1 && (
-            <div className="p-5 sm:p-7 space-y-6">
-              <h2 className="text-xl font-extrabold text-slate-900">{t('step1Title')}</h2>
-
-              <div className="space-y-5">
-                <div>
-                  <label className="flex items-center gap-2 text-base font-bold text-slate-800 mb-2">
-                    <MapPin className="w-5 h-5 text-emerald-600" />
-                    {t('labelPickup')}
-                  </label>
-                  <input
-                    type="text"
-                    value={pickup}
-                    onChange={(e) => setPickup(e.target.value)}
-                    placeholder={t('placeholderPickup')}
-                    className="w-full px-4 py-4 rounded-xl border-2 border-slate-300 text-base font-semibold focus:outline-none focus:border-emerald-600"
-                  />
+            {/* ROW 1: Two Equal-Width Action Cards (Book a Truck & Transport Permit) */}
+            <div className="grid grid-cols-2 gap-3.5 sm:gap-5">
+              {/* Button 1: Book a Truck */}
+              <button
+                type="button"
+                onClick={handleOpenBookingForm}
+                className="group bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-2xl p-5 sm:p-6 border-2 border-emerald-700 shadow-sm flex flex-col items-center justify-center text-center transition-all duration-150 cursor-pointer"
+              >
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/15 group-hover:bg-white/25 flex items-center justify-center mb-3 transition-colors duration-150">
+                  <Truck className="w-8 h-8 sm:w-9 sm:h-9 text-white" />
                 </div>
+                <span className="text-base sm:text-lg font-extrabold leading-tight">
+                  {t('cardBookTitle')}
+                </span>
+                <span className="text-xs font-medium text-emerald-100 mt-1">
+                  {t('cardBookSub')}
+                </span>
+              </button>
 
-                <div>
-                  <label className="flex items-center gap-2 text-base font-bold text-slate-800 mb-2">
-                    <MapPin className="w-5 h-5 text-red-600" />
-                    {t('labelDestination')}
-                  </label>
-                  <input
-                    type="text"
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                    placeholder={t('placeholderDestination')}
-                    className="w-full px-4 py-4 rounded-xl border-2 border-slate-300 text-base font-semibold focus:outline-none focus:border-emerald-600"
-                  />
-                </div>
-
-                {/* Clean Main Road / City-to-City Route Toggle */}
-                <button
-                  type="button"
-                  onClick={() => setIsMainRoadOrIntercity((prev) => !prev)}
-                  className={`w-full px-4 py-3.5 rounded-xl border-2 flex items-center justify-between text-left transition cursor-pointer ${
-                    isMainRoadOrIntercity
-                      ? 'border-amber-500 bg-amber-50 text-amber-950'
-                      : 'border-slate-200 bg-slate-50 hover:border-slate-300 text-slate-700'
+              {/* Button 2: Transport Permit Inquiry / Application */}
+              <button
+                type="button"
+                onClick={handlePermitCardClick}
+                className={`group rounded-2xl p-5 sm:p-6 border-2 shadow-sm flex flex-col items-center justify-center text-center active:scale-[0.98] transition-all duration-150 cursor-pointer ${
+                  transportPermit?.status === 'approved'
+                    ? 'bg-emerald-50 hover:bg-emerald-100/80 border-emerald-500 text-emerald-950'
+                    : 'bg-amber-500 hover:bg-amber-400 border-amber-600 text-slate-950'
+                }`}
+              >
+                <div
+                  className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center mb-3 transition-colors duration-150 ${
+                    transportPermit?.status === 'approved'
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-950/10 group-hover:bg-slate-950/15 text-slate-950'
                   }`}
                 >
-                  <span className="flex items-center gap-2.5 text-sm font-extrabold">
-                    <Route
-                      className={`w-5 h-5 ${
-                        isMainRoadOrIntercity ? 'text-amber-600' : 'text-slate-400'
-                      }`}
-                    />
-                    {t('labelMainRoadToggle')}
-                  </span>
-                  <span
-                    className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-extrabold ${
-                      isMainRoadOrIntercity
-                        ? 'bg-amber-500 text-slate-950'
-                        : 'bg-white border border-slate-300 text-transparent'
-                    }`}
-                  >
-                    ✓
-                  </span>
-                </button>
+                  {transportPermit?.status === 'approved' ? (
+                    <ShieldCheck className="w-8 h-8 sm:w-9 sm:h-9" />
+                  ) : (
+                    <FileCheck2 className="w-8 h-8 sm:w-9 sm:h-9" />
+                  )}
+                </div>
+                <span className="text-base sm:text-lg font-extrabold leading-tight">
+                  {t('cardPermitTitle')}
+                </span>
+                <span
+                  className={`text-xs font-semibold mt-1 ${
+                    transportPermit?.status === 'approved'
+                      ? 'text-emerald-800'
+                      : 'text-slate-900/85'
+                  }`}
+                >
+                  {transportPermit?.status === 'approved'
+                    ? t('cardPermitApprovedSub', { id: transportPermit.id })
+                    : transportPermit?.status === 'pending'
+                    ? t('cardPermitPendingSub', { id: transportPermit.id })
+                    : t('cardPermitSub')}
+                </span>
+              </button>
+            </div>
+
+            {/* ROW 2: Full-Width Activity & Historic Log Card (Redirects to History Tab) */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setActiveTab('history')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveTab('history');
+                }
+              }}
+              className="w-full bg-white hover:bg-slate-50/90 active:scale-[0.995] rounded-2xl border-2 border-slate-200 hover:border-emerald-500 p-5 sm:p-6 shadow-2xs transition-all duration-150 cursor-pointer"
+            >
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-800 flex items-center justify-center shrink-0">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base sm:text-lg font-extrabold text-slate-900">
+                      {t('homeActivityTitle')}
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium">{t('homeActivitySub')}</p>
+                  </div>
+                </div>
+
+                <span className="inline-flex items-center gap-1 text-xs font-extrabold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full shrink-0">
+                  {t('homeActivityViewAll')}
+                  <ChevronRight className="w-4 h-4" />
+                </span>
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="button"
-                  disabled={!canProceedStep1}
-                  onClick={() => setCurrentStep(2)}
-                  className="w-full py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold text-base flex items-center justify-center gap-2 transition cursor-pointer"
-                >
-                  <span>{t('btnNextStep')}</span>
-                  <ArrowRight className="w-5 h-5" />
-                </button>
+              {/* Preview of Latest 3 Activity Items */}
+              <div className="space-y-2.5">
+                {activityLogs.slice(0, 3).map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                          item.type === 'permit'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {item.type === 'permit' ? (
+                          <FileCheck2 className="w-4 h-4" />
+                        ) : (
+                          <Truck className="w-4 h-4" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-extrabold text-slate-900 truncate">
+                          {item.title}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">{item.subtitle}</p>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`inline-block text-[11px] font-extrabold px-2.5 py-0.5 rounded-full ${
+                          item.status === 'Completed' || item.status === 'Approved'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : item.status === 'Cancelled'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-900'
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                      <span className="block text-[11px] font-semibold text-slate-400 mt-1">
+                        {item.amountText}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* STEP 2: WHAT CROP + 50 KG / 25 KG SACK DROPDOWN + QUANTITY + PERMIT HOLD */}
-          {currentStep === 2 && (
-            <div className="p-5 sm:p-7 space-y-6">
-              <h2 className="text-xl font-extrabold text-slate-900">{t('step2Title')}</h2>
+        {/* =========================================================
+            TAB 1B: 3-STEP TRUCK BOOKING WIZARD (Opened from Book Card)
+           ========================================================= */}
+        {activeTab === 'home' && isBookingFormOpen && (
+          <div key="booking-wizard" className="space-y-5 animate-fade-slide">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBookingFormOpen(false)}
+                className="inline-flex items-center gap-1.5 text-sm font-extrabold text-slate-700 hover:text-emerald-700 bg-white border border-slate-300 px-3.5 py-2 rounded-xl transition-colors duration-150 cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>{t('btnBackToHome')}</span>
+              </button>
 
-              <div className="space-y-5">
-                <div>
-                  <label className="flex items-center gap-2 text-base font-bold text-slate-800 mb-2">
-                    <Sprout className="w-5 h-5 text-emerald-600" />
-                    {t('labelCropSending')}
-                  </label>
-                  <input
-                    type="text"
-                    value={cropType}
-                    onChange={(e) => setCropType(e.target.value)}
-                    placeholder={t('placeholderCropSending')}
-                    className="w-full px-4 py-4 rounded-xl border-2 border-slate-300 text-base font-semibold focus:outline-none focus:border-emerald-600"
-                  />
+              {transportPermit?.status === 'approved' && (
+                <button
+                  type="button"
+                  onClick={() => setIsSoftCopyOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                  <span>{t('permitActiveChip', { id: transportPermit.id })}</span>
+                </button>
+              )}
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+              {t('bookingFormTitle')}
+            </h1>
+
+            <div className="bg-white rounded-2xl border-2 border-slate-200 shadow-2xs overflow-hidden">
+              {/* Top Stepper Progress Header */}
+              <div className="bg-slate-50 border-b border-slate-200 px-5 sm:px-7 py-4">
+                <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-3">
+                  <span>{t('stepIndicator', { current: currentStep })}</span>
+                  <span className="text-emerald-700 font-extrabold">
+                    {steps.find((s) => s.num === currentStep)?.label}
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-base font-bold text-slate-800 mb-2">
-                    {t('labelSackSize')}
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={sackWeightKg}
-                      onChange={(e) => setSackWeightKg(Number(e.target.value))}
-                      className="w-full appearance-none px-4 py-4 pr-11 rounded-xl border-2 border-slate-300 bg-white text-base font-bold text-slate-900 focus:outline-none focus:border-emerald-600 cursor-pointer"
-                    >
-                      <option value={50}>{t('sackOption50')}</option>
-                      <option value={25}>{t('sackOption25')}</option>
-                    </select>
-                    <ChevronDown className="w-5 h-5 text-slate-500 absolute right-4 top-4.5 pointer-events-none" />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-base font-bold text-slate-800 mb-2">
-                    {t('labelSackCount')}
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setSackCount((prev) => Math.max(1, prev - 1))}
-                      className="w-16 h-16 rounded-xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 flex items-center justify-center text-slate-900 cursor-pointer active:scale-95 transition"
-                    >
-                      <Minus className="w-6 h-6" />
-                    </button>
-
-                    <div className="flex-1 bg-slate-50 border-2 border-slate-200 rounded-xl py-3 px-4 text-center">
-                      <span className="text-2xl font-extrabold text-slate-900 block leading-none">
-                        {t('sacksUnit', { count: sackCount })}
-                      </span>
-                      <span className="text-sm font-bold text-emerald-700 mt-1 block">
-                        {t('totalWeightSummary', { kg: totalWeightKg.toLocaleString() })}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => setSackCount((prev) => prev + 1)}
-                      className="w-16 h-16 rounded-xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 flex items-center justify-center text-slate-900 cursor-pointer active:scale-95 transition"
-                    >
-                      <Plus className="w-6 h-6" />
-                    </button>
-                  </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {steps.map((step) => {
+                    const isCompleted = step.num < currentStep;
+                    const isCurrent = step.num === currentStep;
+                    return (
+                      <div key={step.num} className="flex flex-col">
+                        <div
+                          className={`h-2.5 rounded-full transition-all duration-300 ${
+                            isCompleted || isCurrent ? 'bg-emerald-600' : 'bg-slate-200'
+                          }`}
+                        />
+                        <span
+                          className={`text-xs mt-1.5 transition-colors duration-200 ${
+                            isCurrent
+                              ? 'font-extrabold text-emerald-800'
+                              : isCompleted
+                              ? 'font-semibold text-slate-700'
+                              : 'font-medium text-slate-400'
+                          }`}
+                        >
+                          {step.num}. {step.label}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* On-Hold Banner when Booking is Paused Waiting for Permit Approval */}
-              {bookingOnHoldForPermit && transportPermit?.status === 'pending' && (
-                <div className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <Clock className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+              {/* STEP 1 */}
+              {currentStep === 1 && (
+                <div key="step-1" className="p-5 sm:p-7 space-y-6 animate-fade-slide">
+                  <h2 className="text-xl font-extrabold text-slate-900">{t('step1Title')}</h2>
+
+                  <div className="space-y-5">
                     <div>
-                      <h3 className="text-base font-extrabold text-amber-950">
-                        {t('permitHoldTitle')}
-                      </h3>
-                      <p className="text-xs sm:text-sm text-amber-900 mt-1">
-                        {t('permitHoldSub', { id: transportPermit.id })}
-                      </p>
+                      <label className="flex items-center gap-2 text-base font-bold text-slate-800 mb-2">
+                        <MapPin className="w-5 h-5 text-emerald-600" />
+                        {t('labelPickup')}
+                      </label>
+                      <input
+                        type="text"
+                        value={pickup}
+                        onChange={(e) => setPickup(e.target.value)}
+                        placeholder={t('placeholderPickup')}
+                        className="w-full px-4 py-4 rounded-xl border-2 border-slate-300 text-base font-semibold transition-colors duration-150 focus:outline-none focus:border-emerald-600"
+                      />
                     </div>
+
+                    <div>
+                      <label className="flex items-center gap-2 text-base font-bold text-slate-800 mb-2">
+                        <MapPin className="w-5 h-5 text-red-600" />
+                        {t('labelDestination')}
+                      </label>
+                      <input
+                        type="text"
+                        value={destination}
+                        onChange={(e) => setDestination(e.target.value)}
+                        placeholder={t('placeholderDestination')}
+                        className="w-full px-4 py-4 rounded-xl border-2 border-slate-300 text-base font-semibold transition-colors duration-150 focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsMainRoadOrIntercity((prev) => !prev)}
+                      className={`w-full px-4 py-3.5 rounded-xl border-2 flex items-center justify-between text-left transition-all duration-150 cursor-pointer ${
+                        isMainRoadOrIntercity
+                          ? 'border-amber-500 bg-amber-50 text-amber-950'
+                          : 'border-slate-200 bg-slate-50 hover:border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5 text-sm font-extrabold">
+                        <Route
+                          className={`w-5 h-5 transition-colors duration-150 ${
+                            isMainRoadOrIntercity ? 'text-amber-600' : 'text-slate-400'
+                          }`}
+                        />
+                        {t('labelMainRoadToggle')}
+                      </span>
+                      <span
+                        className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-extrabold transition-all duration-150 ${
+                          isMainRoadOrIntercity
+                            ? 'bg-amber-500 text-slate-950 scale-105'
+                            : 'bg-white border border-slate-300 text-transparent'
+                        }`}
+                      >
+                        ✓
+                      </span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={approveTransportPermit}
-                    className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-sm transition cursor-pointer"
-                  >
-                    {t('btnSimApprovePermit')}
-                  </button>
+
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      disabled={!canProceedStep1}
+                      onClick={() => setCurrentStep(2)}
+                      className="w-full py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold text-base flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer"
+                    >
+                      <span>{t('btnNextStep')}</span>
+                      <ArrowRight className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               )}
 
-              {/* Approved Permit Banner -> Proceed to Step 3 */}
-              {bookingOnHoldForPermit && transportPermit?.status === 'approved' && (
-                <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-5 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <ShieldCheck className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
-                      <div>
-                        <h3 className="text-base font-extrabold text-emerald-950">
-                          {t('permitApprovedTitle', { id: transportPermit.id })}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-emerald-900 mt-1">
-                          {t('permitApprovedSub')}
+              {/* STEP 2 */}
+              {currentStep === 2 && (
+                <div key="step-2" className="p-5 sm:p-7 space-y-6 animate-fade-slide">
+                  <h2 className="text-xl font-extrabold text-slate-900">{t('step2Title')}</h2>
+
+                  <div className="space-y-5">
+                    <div>
+                      <label className="flex items-center gap-2 text-base font-bold text-slate-800 mb-2">
+                        <Sprout className="w-5 h-5 text-emerald-600" />
+                        {t('labelCropSending')}
+                      </label>
+                      <input
+                        type="text"
+                        value={cropType}
+                        onChange={(e) => setCropType(e.target.value)}
+                        placeholder={t('placeholderCropSending')}
+                        className="w-full px-4 py-4 rounded-xl border-2 border-slate-300 text-base font-semibold transition-colors duration-150 focus:outline-none focus:border-emerald-600"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-base font-bold text-slate-800 mb-2">
+                        {t('labelSackSize')}
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={sackWeightKg}
+                          onChange={(e) => setSackWeightKg(Number(e.target.value))}
+                          className="w-full appearance-none px-4 py-4 pr-11 rounded-xl border-2 border-slate-300 bg-white text-base font-bold text-slate-900 transition-colors duration-150 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                        >
+                          <option value={50}>{t('sackOption50')}</option>
+                          <option value={25}>{t('sackOption25')}</option>
+                        </select>
+                        <ChevronDown className="w-5 h-5 text-slate-500 absolute right-4 top-4.5 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="sack-count-input"
+                        className="block text-base font-bold text-slate-800 mb-2"
+                      >
+                        {t('labelSackCount')}
+                      </label>
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => adjustSackCount(-1)}
+                          aria-label="Decrease sack count"
+                          className="w-16 h-16 rounded-xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 flex items-center justify-center text-slate-900 cursor-pointer active:scale-95 transition-all duration-150 shrink-0"
+                        >
+                          <Minus className="w-6 h-6" />
+                        </button>
+
+                        <div className="flex-1 h-16 bg-white border-2 border-slate-300 focus-within:border-emerald-600 rounded-xl px-4 flex flex-col items-center justify-center transition-colors duration-150">
+                          <input
+                            id="sack-count-input"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={sackCountInput}
+                            onChange={handleSackInputChange}
+                            onBlur={handleSackInputBlur}
+                            placeholder="0"
+                            className="w-full text-center text-2xl font-extrabold text-slate-900 bg-transparent focus:outline-none leading-none"
+                          />
+                          <span className="text-xs sm:text-sm font-bold text-emerald-700 mt-1 block">
+                            {t('totalWeightSummary', { kg: totalWeightKg.toLocaleString() })}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => adjustSackCount(1)}
+                          aria-label="Increase sack count"
+                          className="w-16 h-16 rounded-xl bg-slate-100 hover:bg-slate-200 border-2 border-slate-300 flex items-center justify-center text-slate-900 cursor-pointer active:scale-95 transition-all duration-150 shrink-0"
+                        >
+                          <Plus className="w-6 h-6" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {bookingOnHoldForPermit && transportPermit?.status === 'pending' && (
+                    <div className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5 space-y-3 animate-fade-slide">
+                      <div className="flex items-start gap-3">
+                        <Clock className="w-6 h-6 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <h3 className="text-base font-extrabold text-amber-950">
+                            {t('permitHoldTitle')}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-amber-900 mt-1">
+                            {t('permitHoldSub', { id: transportPermit.id })}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={approveTransportPermit}
+                        className="w-full py-3 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 font-extrabold text-sm transition-all duration-150 cursor-pointer"
+                      >
+                        {t('btnSimApprovePermit')}
+                      </button>
+                    </div>
+                  )}
+
+                  {bookingOnHoldForPermit && hasValidApprovedPermit && (
+                    <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-5 space-y-3 animate-fade-slide">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <ShieldCheck className="w-6 h-6 text-emerald-600 shrink-0 mt-0.5" />
+                          <div>
+                            <h3 className="text-base font-extrabold text-emerald-950">
+                              {t('permitApprovedTitle', { id: transportPermit.id })}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-emerald-900 mt-1">
+                              {t('permitApprovedSub')}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsSoftCopyOpen(true)}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-800 text-xs font-extrabold shrink-0 cursor-pointer hover:bg-emerald-100 transition-colors duration-150"
+                        >
+                          {t('btnViewPermitCopy')}
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBookingOnHoldForPermit(false);
+                          setSelectedTruckId(null);
+                          setCurrentStep(3);
+                        }}
+                        className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold text-sm flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer"
+                      >
+                        <span>{t('btnProceedStep3')}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(1)}
+                      className="py-4 px-4 rounded-xl border-2 border-slate-300 hover:bg-slate-100 active:scale-[0.98] text-slate-700 font-extrabold text-base flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-150"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                      <span>{t('btnBack')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canProceedStep2}
+                      onClick={handleStep2Next}
+                      className="col-span-2 py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold text-base flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer"
+                    >
+                      <span>{t('btnNextStep')}</span>
+                      <ArrowRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* STEP 3 */}
+              {currentStep === 3 && (
+                <div key="step-3" className="p-5 sm:p-7 space-y-6 animate-fade-slide">
+                  <div>
+                    <h2 className="text-xl font-extrabold text-slate-900">{t('step3Title')}</h2>
+                    <p className="text-sm font-semibold text-slate-500 mt-0.5">
+                      {t('step3Subtitle', { kg: totalWeightKg.toLocaleString() })}
+                    </p>
+                  </div>
+
+                  {capableTrucks.length === 0 ? (
+                    <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-8 text-center">
+                      <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-2" />
+                      <p className="text-base font-extrabold text-slate-900">
+                        {t('noCapableTrucksTitle', { kg: totalWeightKg.toLocaleString() })}
+                      </p>
+                      <p className="text-sm text-slate-500 mt-1">{t('noCapableTrucksSub')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {capableTrucks.map((truck) => {
+                        const isSelected = selectedTruckId === truck.id;
+                        return (
+                          <button
+                            key={truck.id}
+                            type="button"
+                            onClick={() => setSelectedTruckId(truck.id)}
+                            className={`w-full px-5 py-4 rounded-xl border-2 flex items-center justify-between gap-4 text-left transition-all duration-150 cursor-pointer ${
+                              isSelected
+                                ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-2xs scale-[1.005]'
+                                : 'border-slate-300 bg-white hover:border-slate-400 text-slate-900'
+                            }`}
+                          >
+                            <span className="text-base sm:text-lg font-extrabold">
+                              {truck.vehicleModel}
+                            </span>
+                            <span
+                              className={`text-base sm:text-lg font-extrabold shrink-0 ${
+                                isSelected ? 'text-emerald-700' : 'text-slate-600'
+                              }`}
+                            >
+                              {truck.capacityKg.toLocaleString()} kg
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(2)}
+                      className="py-4 px-4 rounded-xl border-2 border-slate-300 hover:bg-slate-100 active:scale-[0.98] text-slate-700 font-extrabold text-base flex items-center justify-center gap-1.5 cursor-pointer transition-all duration-150"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                      <span>{t('btnBack')}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!selectedTruckId || isConfirming}
+                      onClick={handleConfirmTruck}
+                      className="col-span-2 py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold text-base flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span>
+                        {isConfirming ? t('btnConfirmingBooking') : t('btnConfirmBooking')}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================
+            TAB 2: FULL ACTIVITY & TRIP HISTORY LOG
+           ========================================================= */}
+        {activeTab === 'history' && (
+          <div key="tab-history" className="space-y-5 animate-fade-slide">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                {t('historyTitle')}
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">{t('historySubtitle')}</p>
+            </div>
+
+            {activityLogs.length === 0 ? (
+              <div className="bg-white rounded-2xl border-2 border-slate-200 p-10 text-center text-sm font-semibold text-slate-500">
+                {t('historyEmpty')}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activityLogs.map((item) => (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-2xl border-2 border-slate-200 p-4 sm:p-5 flex items-start justify-between gap-4 shadow-2xs"
+                  >
+                    <div className="flex items-start gap-3.5 min-w-0">
+                      <div
+                        className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                          item.type === 'permit'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {item.type === 'permit' ? (
+                          <FileCheck2 className="w-5 h-5" />
+                        ) : (
+                          <Truck className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-base font-extrabold text-slate-900">{item.title}</p>
+                        <p className="text-xs sm:text-sm text-slate-600 mt-0.5">{item.subtitle}</p>
+                        <p className="text-xs text-slate-400 font-medium mt-1.5">
+                          {item.timestamp}
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsSoftCopyOpen(true)}
-                      className="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 text-emerald-800 text-xs font-extrabold shrink-0 cursor-pointer"
-                    >
-                      {t('btnViewPermitCopy')}
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBookingOnHoldForPermit(false);
-                      setSelectedTruckId(null);
-                      setCurrentStep(3);
-                    }}
-                    className="w-full py-3.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 transition cursor-pointer"
-                  >
-                    <span>{t('btnProceedStep3')}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
 
-              <div className="grid grid-cols-3 gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(1)}
-                  className="py-4 px-4 rounded-xl border-2 border-slate-300 hover:bg-slate-100 text-slate-700 font-extrabold text-base flex items-center justify-center gap-1.5 cursor-pointer transition"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                  <span>{t('btnBack')}</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={!canProceedStep2}
-                  onClick={handleStep2Next}
-                  className="col-span-2 py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold text-base flex items-center justify-center gap-2 transition cursor-pointer"
-                >
-                  <span>{t('btnNextStep')}</span>
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: MINIMALIST RECTANGLE LIST OF CAPABLE TRUCKS + CONFIRM */}
-          {currentStep === 3 && (
-            <div className="p-5 sm:p-7 space-y-6">
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-900">{t('step3Title')}</h2>
-                <p className="text-sm font-semibold text-slate-500 mt-0.5">
-                  {t('step3Subtitle', { kg: totalWeightKg.toLocaleString() })}
-                </p>
-              </div>
-
-              {capableTrucks.length === 0 ? (
-                <div className="rounded-xl border-2 border-slate-200 bg-slate-50 p-8 text-center">
-                  <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-2" />
-                  <p className="text-base font-extrabold text-slate-900">
-                    {t('noCapableTrucksTitle', { kg: totalWeightKg.toLocaleString() })}
-                  </p>
-                  <p className="text-sm text-slate-500 mt-1">{t('noCapableTrucksSub')}</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {capableTrucks.map((truck) => {
-                    const isSelected = selectedTruckId === truck.id;
-                    return (
-                      <button
-                        key={truck.id}
-                        type="button"
-                        onClick={() => setSelectedTruckId(truck.id)}
-                        className={`w-full px-5 py-4 rounded-xl border-2 flex items-center justify-between gap-4 text-left transition cursor-pointer ${
-                          isSelected
-                            ? 'border-emerald-600 bg-emerald-50 text-emerald-950 shadow-2xs'
-                            : 'border-slate-300 bg-white hover:border-slate-400 text-slate-900'
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`inline-block text-xs font-extrabold px-3 py-1 rounded-full ${
+                          item.status === 'Completed' || item.status === 'Approved'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : item.status === 'Cancelled'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-amber-100 text-amber-900'
                         }`}
                       >
-                        <span className="text-base sm:text-lg font-extrabold">
-                          {truck.vehicleModel}
+                        {item.status}
+                      </span>
+                      <p className="text-sm font-extrabold text-slate-800 mt-1.5">
+                        {item.amountText}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =========================================================
+            TAB 3: NOTIFICATIONS / ALERTS
+           ========================================================= */}
+        {activeTab === 'notifications' && (
+          <div key="tab-notifications" className="space-y-5 animate-fade-slide">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                  {t('notifTitle')}
+                </h1>
+                <p className="text-sm text-slate-500 mt-1">{t('notifSubtitle')}</p>
+              </div>
+
+              {unreadNotifCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllNotificationsRead}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition cursor-pointer"
+                >
+                  {t('btnMarkAllRead')}
+                </button>
+              )}
+            </div>
+
+            {notifications.length === 0 ? (
+              <div className="bg-white rounded-2xl border-2 border-slate-200 p-10 text-center text-sm font-semibold text-slate-500">
+                {t('notifEmpty')}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    className={`rounded-2xl border-2 p-4 sm:p-5 flex items-start gap-3.5 transition ${
+                      notif.read
+                        ? 'bg-white border-slate-200'
+                        : 'bg-emerald-50/70 border-emerald-400'
+                    }`}
+                  >
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                        notif.read
+                          ? 'bg-slate-100 text-slate-500'
+                          : 'bg-emerald-600 text-white'
+                      }`}
+                    >
+                      <Bell className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-base font-extrabold text-slate-900">{notif.title}</p>
+                        <span className="text-xs font-semibold text-slate-400 shrink-0">
+                          {notif.timestamp}
                         </span>
-                        <span
-                          className={`text-base sm:text-lg font-extrabold shrink-0 ${
-                            isSelected ? 'text-emerald-700' : 'text-slate-600'
-                          }`}
-                        >
-                          {truck.capacityKg.toLocaleString()} kg
-                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600 mt-1">{notif.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* =========================================================
+            TAB 4: FARMER PROFILE
+           ========================================================= */}
+        {activeTab === 'profile' && (
+          <div key="tab-profile" className="space-y-5 animate-fade-slide">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
+                {t('profileTitle')}
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">{t('profileSubtitle')}</p>
+            </div>
+
+            <form
+              onSubmit={handleSaveProfile}
+              className="bg-white rounded-2xl border-2 border-slate-200 p-5 sm:p-7 space-y-5 shadow-2xs"
+            >
+              <div>
+                <label className="flex items-center gap-2 text-sm font-extrabold text-slate-800 mb-1.5">
+                  <User className="w-4 h-4 text-emerald-600" />
+                  {t('profileNameLabel')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={profileDraft.fullName}
+                  onChange={(e) =>
+                    setProfileDraft((prev) => ({ ...prev, fullName: e.target.value }))
+                  }
+                  className="w-full px-4 py-3.5 rounded-xl border-2 border-slate-300 text-base font-semibold focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="flex items-center gap-2 text-sm font-extrabold text-slate-800 mb-1.5">
+                  <MapPin className="w-4 h-4 text-emerald-600" />
+                  {t('profileFarmLabel')}
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={profileDraft.farmLocation}
+                  onChange={(e) =>
+                    setProfileDraft((prev) => ({ ...prev, farmLocation: e.target.value }))
+                  }
+                  className="w-full px-4 py-3.5 rounded-xl border-2 border-slate-300 text-base font-semibold focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-extrabold text-slate-800 mb-1.5">
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    {t('profilePhoneLabel')}
+                  </label>
+                  <input
+                    type="text"
+                    value={profileDraft.phone}
+                    onChange={(e) =>
+                      setProfileDraft((prev) => ({ ...prev, phone: e.target.value }))
+                    }
+                    className="w-full px-4 py-3.5 rounded-xl border-2 border-slate-300 text-base font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-extrabold text-slate-800 mb-1.5">
+                    <Building2 className="w-4 h-4 text-emerald-600" />
+                    {t('profileCoopLabel')}
+                  </label>
+                  <input
+                    type="text"
+                    value={profileDraft.coopName}
+                    onChange={(e) =>
+                      setProfileDraft((prev) => ({ ...prev, coopName: e.target.value }))
+                    }
+                    className="w-full px-4 py-3.5 rounded-xl border-2 border-slate-300 text-base font-semibold focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Language Quick Selector */}
+              <div>
+                <span className="block text-sm font-extrabold text-slate-800 mb-2">
+                  {t('profileLangLabel')}
+                </span>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {LANGUAGES.map((lang) => {
+                    const active = language === lang.code;
+                    return (
+                      <button
+                        key={lang.code}
+                        type="button"
+                        onClick={() => setLanguage(lang.code)}
+                        className={`py-3 px-3 rounded-xl border-2 text-sm font-extrabold transition cursor-pointer ${
+                          active
+                            ? 'border-emerald-600 bg-emerald-50 text-emerald-900'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                        }`}
+                      >
+                        {lang.fullName}
                       </button>
                     );
                   })}
                 </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentStep(2)}
-                  className="py-4 px-4 rounded-xl border-2 border-slate-300 hover:bg-slate-100 text-slate-700 font-extrabold text-base flex items-center justify-center gap-1.5 cursor-pointer transition"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                  <span>{t('btnBack')}</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedTruckId || isConfirming}
-                  onClick={handleConfirmTruck}
-                  className="col-span-2 py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-extrabold text-base flex items-center justify-center gap-2 transition cursor-pointer"
-                >
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>
-                    {isConfirming ? t('btnConfirmingBooking') : t('btnConfirmBooking')}
-                  </span>
-                </button>
               </div>
-            </div>
-          )}
+
+              <button
+                type="submit"
+                className="w-full py-4 px-6 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold text-base flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                {profileSaved ? (
+                  <>
+                    <Check className="w-5 h-5" />
+                    <span>{t('profileSavedToast')}</span>
+                  </>
+                ) : (
+                  <span>{t('btnSaveProfile')}</span>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {/* =========================================================
+          FIXED BOTTOM NAVIGATION PANEL (Home | History | Alerts | Profile)
+         ========================================================= */}
+      <nav
+        aria-label="Farmer Navigation"
+        className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.06)]"
+      >
+        <div className="max-w-3xl mx-auto px-2 py-1.5 grid grid-cols-4 gap-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isSelected = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(item.id);
+                  if (item.id === 'home') {
+                    setIsBookingFormOpen(false);
+                  }
+                }}
+                className={`relative py-2 px-2 rounded-xl flex flex-col items-center justify-center gap-1 transition-all duration-150 cursor-pointer ${
+                  isSelected
+                    ? 'bg-emerald-50 text-emerald-800 font-extrabold'
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50 font-semibold'
+                }`}
+              >
+                <div className="relative">
+                  <Icon
+                    className={`w-5 h-5 transition-transform duration-150 ${
+                      isSelected ? 'text-emerald-600 scale-110' : ''
+                    }`}
+                  />
+                  {item.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black flex items-center justify-center">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] sm:text-xs leading-none">{item.label}</span>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </nav>
 
       {/* 5-Attribute Permit Application Modal */}
       <PermitFormModal
@@ -517,7 +1082,7 @@ export default function OrdinaryDashboard() {
         prefillData={prefillPermitData}
         triggerReasons={permitTriggerInfo}
         onSubmitted={() => {
-          if (currentStep === 2) {
+          if (isBookingFormOpen && currentStep === 2) {
             setBookingOnHoldForPermit(true);
           }
         }}
@@ -529,6 +1094,6 @@ export default function OrdinaryDashboard() {
         isOpen={isSoftCopyOpen}
         onClose={() => setIsSoftCopyOpen(false)}
       />
-    </div>
+    </>
   );
 }
