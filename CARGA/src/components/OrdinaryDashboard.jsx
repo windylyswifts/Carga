@@ -232,7 +232,7 @@ export default function OrdinaryDashboard() {
            ========================================================= */}
         {farmerTab === 'home' && !isBookingFormOpen && !isLiveTrackerOpen && (
           <div key="farmer-home" className="space-y-6 animate-fade-slide">
-            {/* Compact Active Delivery Banner (Re-opens Live Truck Tracker) */}
+            {/* Compact Active Delivery Banner (Re-opens Live GPS Tracker) */}
             {activeBooking && (
               <button
                 type="button"
@@ -248,7 +248,13 @@ export default function OrdinaryDashboard() {
                       {t('activeTripBannerLabel', { stage: activeStageLabel })}
                     </p>
                     <p className="text-xs text-slate-300 truncate mt-0.5">
-                      {t('activeTripBannerSub', { driver: activeBooking.truck.driverName })}
+                      {t('activeTripBannerSub', {
+                        driver: activeBooking.truck.driverName,
+                        km:
+                          activeBooking.gps?.remainingKm ??
+                          activeBooking.fareBreakdown?.distanceKm ??
+                          0,
+                      })}
                     </p>
                   </div>
                 </div>
@@ -269,9 +275,9 @@ export default function OrdinaryDashboard() {
               <p className="text-sm font-medium text-slate-500 mt-0.5">{t('farmerSubtitle')}</p>
             </div>
 
-            {/* ROW 1: Two Equal-Width 3D Action Cards (Color-Psychology Paired) */}
+            {/* ROW 1: Two Equal-Width 3D Action Cards */}
             <div className="grid grid-cols-2 gap-3.5 sm:gap-5">
-              {/* Card 1: Book a Truck — Rich Emerald-Teal Gradient */}
+              {/* Card 1: Book a Truck */}
               <button
                 type="button"
                 onClick={handleOpenBookingForm}
@@ -288,7 +294,7 @@ export default function OrdinaryDashboard() {
                 </span>
               </button>
 
-              {/* Card 2: Transport Permit Inquiry — Deep Royal Navy + Warm Gold */}
+              {/* Card 2: Transport Permit Inquiry */}
               <button
                 type="button"
                 onClick={handlePermitCardClick}
@@ -320,7 +326,7 @@ export default function OrdinaryDashboard() {
               </button>
             </div>
 
-            {/* ROW 2: Full-Width Activity & Historic Log Card (Redirects to History Tab) */}
+            {/* ROW 2: Full-Width Activity & Historic Log Card */}
             <div
               role="button"
               tabIndex={0}
@@ -404,7 +410,7 @@ export default function OrdinaryDashboard() {
         )}
 
         {/* =========================================================
-            TAB 1B: LIVE TRUCK TRACKER VIEW (With Back to Home)
+            TAB 1B: LIVE GPS TRUCK TRACKER VIEW (With Back to Home)
            ========================================================= */}
         {farmerTab === 'home' && isLiveTrackerOpen && activeBooking && (
           <div key="live-tracker-view" className="space-y-4 animate-fade-slide">
@@ -503,6 +509,7 @@ export default function OrdinaryDashboard() {
                         <MapPin className="w-5 h-5 text-emerald-600" />
                         {t('labelPickup')}
                       </label>
+
                       <input
                         type="text"
                         value={pickup}

@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UI_STRINGS, translateDynamicText } from '../utils/translations';
+import { translateKey, translateDynamicText } from '../utils/translations';
+import {
+  resolveLocationCoords,
+  calculateHaversineKm,
+  calculateBearingDegrees,
+  generateRoadWaypoints,
+  interpolateAlongWaypoints,
+} from '../utils/gpsEngine';
 
 const LogisticsContext = createContext();
 
@@ -20,6 +27,7 @@ const INITIAL_TRUCKS = [
     totalEarnings: 48500,
     isAvailable: true,
     currentLocation: 'Ampayon Highway Junction',
+    coords: { lat: 8.9589, lng: 125.5968 },
   },
   {
     id: 'TRK-102',
@@ -35,6 +43,7 @@ const INITIAL_TRUCKS = [
     totalEarnings: 24300,
     isAvailable: true,
     currentLocation: 'Libertad Public Terminal',
+    coords: { lat: 8.9432, lng: 125.5055 },
   },
   {
     id: 'TRK-103',
@@ -50,6 +59,7 @@ const INITIAL_TRUCKS = [
     totalEarnings: 31200,
     isAvailable: true,
     currentLocation: 'Baan Viaduct Crossing',
+    coords: { lat: 8.9495, lng: 125.5532 },
   },
   {
     id: 'TRK-104',
@@ -65,6 +75,7 @@ const INITIAL_TRUCKS = [
     totalEarnings: 79400,
     isAvailable: true,
     currentLocation: 'National Highway Terminal',
+    coords: { lat: 8.9456, lng: 125.5240 },
   },
 ];
 
@@ -213,14 +224,7 @@ export const LogisticsProvider = ({ children }) => {
     setIsLiveTrackerOpen(false);
   };
 
-  const t = (key, params = {}) => {
-    const dict = UI_STRINGS[language] || UI_STRINGS.en;
-    let template = dict[key] || UI_STRINGS.en[key] || key;
-    for (const [paramKey, paramVal] of Object.entries(params)) {
-      template = template.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(paramVal));
-    }
-    return template;
-  };
+  const t = (key, params = {}) => translateKey(language, key, params);
 
   const formatNow = () =>
     new Date().toLocaleString('en-US', {
@@ -263,25 +267,47 @@ export const LogisticsProvider = ({ children }) => {
     setFarmerProfile((prev) => ({ ...prev, ...updates }));
   };
 
+  // Real-Time GPS Route Telemetry Loop (Stage 1: Approach to Farm | Stage 3: Delivery to Market)
   useEffect(() => {
-    if (
-      !activeBooking ||
-      activeBooking.stageIndex === 0 ||
-      activeBooking.stageIndex >= TRIP_STAGES.length - 1
-    ) {
+    if (!activeBooking) return;
+    const { stageIndex, gps } = activeBooking;
+    if (!gps || (stageIndex !== 1 && stageIndex !== 3) || gps.source === 'device-gps') {
       return;
     }
 
     const timer = setInterval(() => {
       setActiveBooking((prev) => {
-        if (!prev) return null;
-        const targetProgress = TRIP_STAGES[prev.stageIndex].progress;
-        if (prev.liveProgress < targetProgress) {
-          return { ...prev, liveProgress: Math.min(prev.liveProgress + 2, targetProgress) };
-        }
-        return prev;
+        if (!prev || !prev.gps) return prev;
+        if (prev.stageIndex !== 1 && prev.stageIndex !== 3) return prev;
+
+        const nextFraction = Math.min(1, (prev.gps.routeFraction || 0) + 0.045);
+        const activeWaypoints =
+          prev.stageIndex === 1 ? prev.gps.approachWaypoints : prev.gps.deliveryWaypoints;
+        const targetCoords =
+          prev.stageIndex === 1 ? prev.gps.pickupCoords : prev.gps.destinationCoords;
+
+        const { coords, heading } = interpolateAlongWaypoints(activeWaypoints, nextFraction);
+        const remainingKm = calculateHaversineKm(coords, targetCoords);
+        const speedKmh = nextFraction >= 1 ? 0 : Math.round(38 + (nextFraction * 14) % 14);
+
+        const stageBaseProgress = prev.stageIndex === 1 ? 10 : 58;
+        const stageSpanProgress = prev.stageIndex === 1 ? 28 : 38;
+        const liveProgress = Math.round(stageBaseProgress + nextFraction * stageSpanProgress);
+
+        return {
+          ...prev,
+          liveProgress,
+          gps: {
+            ...prev.gps,
+            routeFraction: nextFraction,
+            truckCoords: coords,
+            heading,
+            speedKmh,
+            remainingKm,
+          },
+        };
       });
-    }, 600);
+    }, 900);
 
     return () => clearInterval(timer);
   }, [activeBooking]);
@@ -295,11 +321,76 @@ export const LogisticsProvider = ({ children }) => {
   };
 
   const updateTruckLocation = (truckId, newLocation) => {
+    const resolvedCoords = resolveLocationCoords(newLocation);
     setTrucks((prev) =>
       prev.map((truck) =>
-        truck.id === truckId ? { ...truck, currentLocation: newLocation } : truck
+        truck.id === truckId
+          ? { ...truck, currentLocation: newLocation, coords: resolvedCoords }
+          : truck
       )
     );
+  };
+
+  // Updates real hardware GPS coordinates from the Driver's device
+  const updateLiveTruckGps = (truckId, liveCoords) => {
+    if (!liveCoords) return;
+    setTrucks((prev) =>
+      prev.map((truck) =>
+        truck.id === truckId ? { ...truck, coords: liveCoords } : truck
+      )
+    );
+
+    setActiveBooking((prev) => {
+      if (!prev || prev.truck.id !== truckId || !prev.gps) return prev;
+      const targetCoords =
+        prev.stageIndex <= 2 ? prev.gps.pickupCoords : prev.gps.destinationCoords;
+      const heading = calculateBearingDegrees(prev.gps.truckCoords, liveCoords);
+      const remainingKm = calculateHaversineKm(liveCoords, targetCoords);
+
+      return {
+        ...prev,
+        gps: {
+          ...prev.gps,
+          source: 'device-gps',
+          truckCoords: liveCoords,
+          heading: heading || prev.gps.heading,
+          speedKmh: liveCoords.speedKmh ?? 42,
+          remainingKm,
+        },
+      };
+    });
+  };
+
+  // Manual demo helper to nudge GPS telemetry forward along the active leg
+  const nudgeTruckGps = () => {
+    setActiveBooking((prev) => {
+      if (!prev || !prev.gps) return prev;
+      const activeStage = prev.stageIndex === 0 ? 1 : prev.stageIndex;
+      if (activeStage !== 1 && activeStage !== 3) return prev;
+
+      const nextFraction = Math.min(1, (prev.gps.routeFraction || 0) + 0.18);
+      const activeWaypoints =
+        activeStage === 1 ? prev.gps.approachWaypoints : prev.gps.deliveryWaypoints;
+      const targetCoords =
+        activeStage === 1 ? prev.gps.pickupCoords : prev.gps.destinationCoords;
+
+      const { coords, heading } = interpolateAlongWaypoints(activeWaypoints, nextFraction);
+      const remainingKm = calculateHaversineKm(coords, targetCoords);
+
+      return {
+        ...prev,
+        stageIndex: activeStage,
+        gps: {
+          ...prev.gps,
+          source: 'telemetry',
+          routeFraction: nextFraction,
+          truckCoords: coords,
+          heading,
+          speedKmh: nextFraction >= 1 ? 0 : 46,
+          remainingKm,
+        },
+      };
+    });
   };
 
   const submitPermitApplication = ({
@@ -387,6 +478,15 @@ export const LogisticsProvider = ({ children }) => {
       availabilityMultiplier,
     });
 
+    const pickupCoords = resolveLocationCoords(pickup, 11);
+    const destinationCoords = resolveLocationCoords(destination, 29);
+    const initialTruckCoords = truck.coords || resolveLocationCoords(truck.currentLocation, 7);
+
+    const approachWaypoints = generateRoadWaypoints(initialTruckCoords, pickupCoords, 12);
+    const deliveryWaypoints = generateRoadWaypoints(pickupCoords, destinationCoords, 14);
+    const initialHeading = calculateBearingDegrees(initialTruckCoords, pickupCoords);
+    const initialApproachKm = calculateHaversineKm(initialTruckCoords, pickupCoords);
+
     const [localizedPickup, localizedDestination, localizedCrop] = await Promise.all([
       translateDynamicText(pickup),
       translateDynamicText(destination),
@@ -415,6 +515,18 @@ export const LogisticsProvider = ({ children }) => {
       permit: transportPermit?.status === 'approved' ? transportPermit : null,
       stageIndex: 0,
       liveProgress: 5,
+      gps: {
+        source: 'telemetry',
+        routeFraction: 0,
+        truckCoords: initialTruckCoords,
+        pickupCoords,
+        destinationCoords,
+        approachWaypoints,
+        deliveryWaypoints,
+        heading: initialHeading,
+        speedKmh: 0,
+        remainingKm: initialApproachKm,
+      },
     });
 
     setIsBookingFormOpen(false);
@@ -441,6 +553,39 @@ export const LogisticsProvider = ({ children }) => {
       if (!prev || prev.stageIndex >= TRIP_STAGES.length - 1) return prev;
       const nextStage = prev.stageIndex + 1;
 
+      let updatedGps = prev.gps ? { ...prev.gps } : null;
+
+      if (updatedGps) {
+        if (nextStage === 1) {
+          updatedGps.routeFraction = 0.08;
+          const pos = interpolateAlongWaypoints(updatedGps.approachWaypoints, 0.08);
+          updatedGps.truckCoords = pos.coords;
+          updatedGps.heading = pos.heading;
+          updatedGps.speedKmh = 42;
+          updatedGps.remainingKm = calculateHaversineKm(pos.coords, updatedGps.pickupCoords);
+        } else if (nextStage === 2) {
+          updatedGps.routeFraction = 1;
+          updatedGps.truckCoords = updatedGps.pickupCoords;
+          updatedGps.speedKmh = 0;
+          updatedGps.remainingKm = calculateHaversineKm(
+            updatedGps.pickupCoords,
+            updatedGps.destinationCoords
+          );
+        } else if (nextStage === 3) {
+          updatedGps.routeFraction = 0.08;
+          const pos = interpolateAlongWaypoints(updatedGps.deliveryWaypoints, 0.08);
+          updatedGps.truckCoords = pos.coords;
+          updatedGps.heading = pos.heading;
+          updatedGps.speedKmh = 46;
+          updatedGps.remainingKm = calculateHaversineKm(pos.coords, updatedGps.destinationCoords);
+        } else if (nextStage === TRIP_STAGES.length - 1) {
+          updatedGps.routeFraction = 1;
+          updatedGps.truckCoords = updatedGps.destinationCoords;
+          updatedGps.speedKmh = 0;
+          updatedGps.remainingKm = 0;
+        }
+      }
+
       if (nextStage === 1) {
         pushNotification({
           title: 'Driver Accepted Your Trip',
@@ -454,6 +599,7 @@ export const LogisticsProvider = ({ children }) => {
                   ...tr,
                   tripsCompleted: tr.tripsCompleted + 1,
                   totalEarnings: tr.totalEarnings + prev.totalFare,
+                  coords: updatedGps?.destinationCoords || tr.coords,
                 }
               : tr
           )
@@ -475,6 +621,7 @@ export const LogisticsProvider = ({ children }) => {
         ...prev,
         stageIndex: nextStage,
         liveProgress: TRIP_STAGES[nextStage].progress,
+        gps: updatedGps,
       };
     });
   };
@@ -520,6 +667,8 @@ export const LogisticsProvider = ({ children }) => {
         trucks,
         toggleTruckAvailability,
         updateTruckLocation,
+        updateLiveTruckGps,
+        nudgeTruckGps,
         activeBooking,
         createBooking,
         advanceTripStage,

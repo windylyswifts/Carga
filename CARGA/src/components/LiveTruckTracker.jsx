@@ -1,19 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  MapPin,
-  Navigation,
   Phone,
-  CheckCircle2,
-  Package,
   Clock,
+  MapPin,
+  Sprout,
+  CheckCircle2,
   FastForward,
-  RotateCcw,
+  Navigation,
+  Gauge,
+  Compass,
+  ShieldCheck,
+  Radio,
 } from 'lucide-react';
 import { useLogistics, TRIP_STAGES } from '../context/LogisticsContext';
 import { getLocalizedText } from '../utils/translations';
+import { formatGpsCoords } from '../utils/gpsEngine';
+import LiveGpsMap from './LiveGpsMap';
+import PermitSoftCopyModal from './PermitSoftCopyModal';
 
 export default function LiveTruckTracker() {
-  const { language, t, activeBooking, advanceTripStage, completeAndClearBooking } = useLogistics();
+  const {
+    language,
+    t,
+    activeBooking,
+    advanceTripStage,
+    nudgeTruckGps,
+    completeAndClearBooking,
+  } = useLogistics();
+
+  const [isPermitModalOpen, setIsPermitModalOpen] = useState(false);
 
   if (!activeBooking) return null;
 
@@ -27,308 +42,337 @@ export default function LiveTruckTracker() {
     estimatedMinutes,
     totalFare,
     fareBreakdown,
+    permit,
     stageIndex,
-    liveProgress,
+    gps,
   } = activeBooking;
 
-  const currentStage = TRIP_STAGES[stageIndex];
+  const currentStage = TRIP_STAGES[stageIndex] || TRIP_STAGES[0];
   const isWaitingForDriver = stageIndex === 0;
-  const isDelivered = stageIndex === TRIP_STAGES.length - 1;
-  const remainingMinutes = Math.max(
-    0,
-    Math.round(((100 - liveProgress) / 100) * estimatedMinutes)
-  );
+  const isArrived = stageIndex === TRIP_STAGES.length - 1;
+  const isMovingStage = stageIndex === 1 || stageIndex === 3;
 
-  const t2 = liveProgress / 100;
-  const truckX = (1 - t2) * (1 - t2) * 80 + 2 * (1 - t2) * t2 * 300 + t2 * t2 * 520;
-  const truckY = (1 - t2) * (1 - t2) * 190 + 2 * (1 - t2) * t2 * 40 + t2 * t2 * 160;
+  const localizedPickup = getLocalizedText(pickup, language);
+  const localizedDestination = getLocalizedText(destination, language);
+  const localizedCrop = getLocalizedText(cropType, language);
+
+  const dynamicEtaMins = isArrived
+    ? 0
+    : gps?.remainingKm != null && gps.remainingKm > 0
+    ? Math.max(2, Math.round(gps.remainingKm * 2.2))
+    : estimatedMinutes;
 
   return (
-    <div className="bg-white rounded-2xl border-2 border-emerald-500 shadow-md overflow-hidden">
-      {/* Top Status Banner */}
-      <div className="bg-slate-900 text-white px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <span
-            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-extrabold border ${
-              isWaitingForDriver
-                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-            }`}
-          >
+    <>
+      <div className="bg-white rounded-2xl border-2 border-emerald-600 shadow-sm overflow-hidden animate-fade-slide">
+        {/* Top Live GPS Status Bar */}
+        <div className="bg-slate-900 text-white px-5 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
             <span
-              className={`w-2.5 h-2.5 rounded-full animate-ping ${
-                isWaitingForDriver ? 'bg-amber-400' : 'bg-emerald-400'
+              className={`w-3 h-3 rounded-full ${
+                isWaitingForDriver
+                  ? 'bg-amber-400 animate-ping'
+                  : isArrived
+                  ? 'bg-emerald-400'
+                  : 'bg-emerald-400 animate-pulse'
               }`}
             />
-            {isWaitingForDriver
-              ? t('waitingForDriverBadge')
-              : isDelivered
-              ? t('deliveredBadge')
-              : t('liveMapBadge')}
-          </span>
-        </div>
-
-        <div>
-          {!isDelivered ? (
-            <button
-              onClick={advanceTripStage}
-              className="flex items-center gap-1.5 text-xs bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold px-3.5 py-2 rounded-xl transition cursor-pointer"
-            >
-              <FastForward className="w-4 h-4" />
-              {isWaitingForDriver ? t('btnSimAccept') : t('btnNextStepDemo')}
-            </button>
-          ) : (
-            <button
-              onClick={completeAndClearBooking}
-              className="flex items-center gap-1.5 text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-3.5 py-2 rounded-xl transition cursor-pointer"
-            >
-              <RotateCcw className="w-4 h-4" />
-              {t('btnBookAnother')}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3">
-        {/* Visual Route Map */}
-        <div className="lg:col-span-2 p-5 sm:p-6 bg-slate-50 border-b lg:border-b-0 lg:border-r border-slate-200 flex flex-col justify-between">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                {t('whatHappeningNow')}
+            <span className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-300">
+              {isWaitingForDriver
+                ? t('waitingForDriverBadge')
+                : isArrived
+                ? t('deliveredBadge')
+                : t('liveMapBadge')}
+            </span>
+            {gps && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                <Radio className="w-3 h-3 text-emerald-400" />
+                {gps.source === 'device-gps'
+                  ? t('gpsSignalSourceHardware')
+                  : t('gpsSignalSourceSim')}
               </span>
-              <h3 className="text-2xl font-extrabold text-slate-900">
-                {t(currentStage.labelKey)}
-              </h3>
-              <p className="text-base text-slate-600">{t(currentStage.subKey)}</p>
-            </div>
-
-            <div className="bg-white px-4 py-2.5 rounded-xl border-2 border-slate-200 text-right">
-              <div className="flex items-center justify-end gap-1.5 text-slate-500 text-xs font-bold">
-                <Clock className="w-4 h-4 text-emerald-600" />
-                <span>{t('arrivalTimeLabel')}</span>
-              </div>
-              <p className="text-xl font-extrabold text-slate-900">
-                {isDelivered ? t('arrivedExcl') : t('minsApprox', { mins: remainingMinutes })}
-              </p>
-            </div>
+            )}
           </div>
 
-          <div className="relative w-full h-64 bg-[#eef3ef] rounded-xl border-2 border-slate-200 overflow-hidden">
-            <svg viewBox="0 0 600 240" className="w-full h-full">
-              <defs>
-                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#dce5de" strokeWidth="1" />
-                </pattern>
-              </defs>
-              <rect width="600" height="240" fill="url(#grid)" />
+          <div className="flex flex-wrap items-center gap-2">
+            {isMovingStage && (
+              <button
+                type="button"
+                onClick={nudgeTruckGps}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-emerald-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer transition"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>{t('btnNudgeGpsDemo')}</span>
+              </button>
+            )}
 
-              <path d="M 0 110 Q 220 130 600 90" fill="none" stroke="#ffffff" strokeWidth="8" />
-              <path d="M 240 0 L 290 240" fill="none" stroke="#ffffff" strokeWidth="6" />
-
-              <path
-                d="M 80 190 Q 300 40 520 160"
-                fill="none"
-                stroke="#94a3b8"
-                strokeWidth="6"
-                strokeDasharray="8 6"
-                strokeLinecap="round"
-              />
-
-              <path
-                d="M 80 190 Q 300 40 520 160"
-                fill="none"
-                stroke="#10b981"
-                strokeWidth="6"
-                strokeLinecap="round"
-                pathLength="100"
-                strokeDasharray={`${liveProgress} 100`}
-              />
-
-              {/* Farm Origin Pin */}
-              <g transform="translate(80, 190)">
-                <circle r="11" fill="#0f172a" />
-                <circle r="4" fill="#10b981" />
-                <rect x="-46" y="14" width="92" height="22" rx="5" fill="#0f172a" />
-                <text
-                  x="0"
-                  y="28"
-                  textAnchor="middle"
-                  fill="#ffffff"
-                  fontSize="10"
-                  fontWeight="700"
-                >
-                  {t('mapPinFarm')}
-                </text>
-              </g>
-
-              {/* Market Destination Pin */}
-              <g transform="translate(520, 160)">
-                <circle r="11" fill="#dc2626" />
-                <circle r="4" fill="#ffffff" />
-                <rect x="-46" y="14" width="92" height="22" rx="5" fill="#dc2626" />
-                <text
-                  x="0"
-                  y="28"
-                  textAnchor="middle"
-                  fill="#ffffff"
-                  fontSize="10"
-                  fontWeight="700"
-                >
-                  {t('mapPinMarket')}
-                </text>
-              </g>
-
-              {/* Moving Truck Marker */}
-              <g transform={`translate(${truckX}, ${truckY})`}>
-                <circle r="20" fill="#10b981" fillOpacity="0.25" />
-                <circle r="14" fill="#059669" stroke="#ffffff" strokeWidth="3" />
-                <text x="0" y="5" textAnchor="middle" fill="#ffffff" fontSize="13">
-                  🚚
-                </text>
-              </g>
-            </svg>
-
-            <div className="absolute bottom-3 left-3 right-3 bg-white/95 px-4 py-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs sm:text-sm">
-              <div className="flex items-center gap-1.5 truncate max-w-[44%]">
-                <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="font-bold text-slate-900 truncate">
-                  {getLocalizedText(pickup, language)}
+            {!isArrived ? (
+              <button
+                type="button"
+                onClick={advanceTripStage}
+                className="px-3.5 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 cursor-pointer transition"
+              >
+                <FastForward className="w-3.5 h-3.5" />
+                <span>
+                  {isWaitingForDriver ? t('btnSimAccept') : t('btnNextStepDemo')}
                 </span>
-              </div>
-              <Navigation className="w-4 h-4 text-slate-400 shrink-0" />
-              <div className="flex items-center gap-1.5 truncate max-w-[44%]">
-                <MapPin className="w-4 h-4 text-red-600 shrink-0" />
-                <span className="font-bold text-slate-900 truncate">
-                  {getLocalizedText(destination, language)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* 5-Step Progress Bar */}
-          <div className="mt-5 grid grid-cols-5 gap-2">
-            {TRIP_STAGES.map((stage, idx) => {
-              const completed = idx <= stageIndex;
-              const current = idx === stageIndex;
-              return (
-                <div key={stage.id} className="flex flex-col">
-                  <div
-                    className={`h-2.5 rounded-full mb-1.5 transition-all ${
-                      completed ? 'bg-emerald-600' : 'bg-slate-200'
-                    }`}
-                  />
-                  <span
-                    className={`text-xs leading-tight ${
-                      current
-                        ? 'text-emerald-800 font-extrabold'
-                        : completed
-                        ? 'text-slate-700 font-semibold'
-                        : 'text-slate-400 font-medium'
-                    }`}
-                  >
-                    {t(stage.labelKey)}
-                  </span>
-                </div>
-              );
-            })}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={completeAndClearBooking}
+                className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs cursor-pointer transition"
+              >
+                {t('btnBookAnother')}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Driver Contact, Load & Formula Fare Breakdown */}
-        <div className="p-5 sm:p-6 flex flex-col justify-between bg-white">
-          <div>
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3">
-              {t('yourDriverHeader')}
-            </h4>
-            <div className="p-4 rounded-2xl bg-slate-50 border-2 border-slate-200 mb-5">
+        {/* Main Content Grid */}
+        <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left 2 Columns: Stage Header + Interactive Live GPS Map + 5 Checkpoints */}
+          <div className="lg:col-span-2 space-y-5">
+            {/* Current Checkpoint & Arrival ETA */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                  {t('whatHappeningNow')}
+                </p>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5">
+                  {t(currentStage.labelKey)}
+                </h2>
+                <p className="text-sm text-slate-600 mt-0.5">{t(currentStage.subKey)}</p>
+              </div>
+
+              <div className="px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-right">
+                <span className="text-[11px] font-bold text-slate-500 flex items-center justify-end gap-1">
+                  <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                  {t('arrivalTimeLabel')}
+                </span>
+                <p className="text-lg font-extrabold text-slate-900">
+                  {isArrived
+                    ? t('arrivedExcl')
+                    : t('minsApprox', { mins: dynamicEtaMins })}
+                </p>
+              </div>
+            </div>
+
+            {/* Interactive Real-Time GPS Map */}
+            {gps && (
+              <LiveGpsMap
+                truckCoords={gps.truckCoords}
+                pickupCoords={gps.pickupCoords}
+                destinationCoords={gps.destinationCoords}
+                approachWaypoints={gps.approachWaypoints}
+                deliveryWaypoints={gps.deliveryWaypoints}
+                heading={gps.heading}
+                speedKmh={gps.speedKmh}
+                stageIndex={stageIndex}
+                plateNumber={truck.plateNumber}
+                farmerCoords={gps.farmerCoords}
+              />
+            )}
+
+            {/* Live GPS Telemetry Readout Bar */}
+            {gps && (
+              <div className="grid grid-cols-3 gap-2.5">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                    <Compass className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    {t('gpsCoordsLabel')}
+                  </span>
+                  <p className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5 truncate">
+                    {formatGpsCoords(gps.truckCoords)}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                    <Gauge className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    {t('gpsSpeedLabel')}
+                  </span>
+                  <p className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">
+                    {gps.speedKmh} km/h
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
+                    <Navigation className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    {t('gpsDistanceLeft')}
+                  </span>
+                  <p className="text-xs sm:text-sm font-extrabold text-emerald-700 mt-0.5">
+                    {isArrived ? '0.0 km' : `${gps.remainingKm} km`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Route Endpoints Summary */}
+            <div className="px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs font-bold text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                {localizedPickup}
+              </span>
+              <span className="text-slate-400">→</span>
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                {localizedDestination}
+              </span>
+            </div>
+
+            {/* Existing 5-Checkpoint Stepper Preserved */}
+            <div className="grid grid-cols-5 gap-1.5">
+              {TRIP_STAGES.map((stage, idx) => {
+                const isDone = idx <= stageIndex;
+                return (
+                  <div key={stage.id} className="flex flex-col items-center text-center">
+                    <div
+                      className={`w-full h-2 rounded-full mb-1.5 transition-colors duration-300 ${
+                        isDone ? 'bg-emerald-600' : 'bg-slate-200'
+                      }`}
+                    />
+                    <span
+                      className={`text-[11px] leading-tight ${
+                        idx === stageIndex
+                          ? 'font-extrabold text-emerald-700'
+                          : isDone
+                          ? 'font-semibold text-slate-700'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {t(stage.labelKey)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right Column: Driver Info, Load & Transparent Fare Breakdown */}
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                {t('yourDriverHeader')}
+              </p>
+
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-extrabold text-slate-900 text-lg">{truck.driverName}</p>
-                  <p className="text-sm text-slate-600">{truck.vehicleModel}</p>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    {truck.driverName}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{truck.vehicleModel}</p>
                 </div>
-                <span className="px-2.5 py-1 bg-slate-900 text-white text-xs font-mono font-bold rounded-lg">
+                <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-mono text-xs font-extrabold shrink-0">
                   {truck.plateNumber}
                 </span>
               </div>
 
               <a
                 href={`tel:${truck.phone}`}
-                className="mt-4 w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 transition"
+                className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition"
               >
-                <Phone className="w-4 h-4" />
-                {t('callDriverBtn', { phone: truck.phone })}
+                <Phone className="w-4 h-4 shrink-0" />
+                <span>{t('callDriverBtn', { phone: truck.phone })}</span>
               </a>
             </div>
 
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2.5">
-              {t('yourLoadHeader')}
-            </h4>
-            <div className="space-y-2 text-xs sm:text-sm">
+            {permit && (
+              <button
+                type="button"
+                onClick={() => setIsPermitModalOpen(true)}
+                className="w-full p-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 flex items-center justify-between gap-2 text-left transition cursor-pointer"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <ShieldCheck className="w-5 h-5 text-emerald-700 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold text-emerald-950 truncate">
+                      {permit.id}
+                    </p>
+                    <p className="text-[11px] font-semibold text-emerald-700">
+                      {t('btnViewPermitCopy')}
+                    </p>
+                  </div>
+                </div>
+                <span className="text-xs font-extrabold text-emerald-800 shrink-0">→</span>
+              </button>
+            )}
+
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5 text-sm">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                {t('yourLoadHeader')}
+              </p>
+
               <div className="flex items-center justify-between">
-                <span className="text-slate-500 flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-slate-400" /> {t('cropColon')}
+                <span className="text-slate-600 flex items-center gap-1.5">
+                  <Sprout className="w-4 h-4 text-emerald-600" />
+                  {t('cropColon')}
                 </span>
-                <span className="font-bold text-slate-900">
-                  {getLocalizedText(cropType, language)}
-                </span>
+                <span className="font-bold text-slate-900">{localizedCrop}</span>
               </div>
+
               <div className="flex items-center justify-between">
-                <span className="text-slate-500">{t('totalLoadColon')}</span>
+                <span className="text-slate-600">{t('totalLoadColon')}</span>
                 <span className="font-bold text-slate-900">
                   {t('sacksUnit', { count: sackCount })} ({weightKg.toLocaleString()} kg)
                 </span>
               </div>
 
               {fareBreakdown && (
-                <div className="pt-2.5 mt-2.5 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
-                  <div className="flex justify-between">
+                <div className="pt-2.5 border-t border-slate-200 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-slate-600">
                     <span>
                       {t('distanceCostLabel', {
                         km: fareBreakdown.distanceKm,
                         rate: fareBreakdown.ratePerKm,
                       })}
                     </span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-bold text-slate-800">
                       ₱{fareBreakdown.distanceCost.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex items-center justify-between text-slate-600">
                     <span>
                       {t('handlingCostLabel', {
                         kg: weightKg.toLocaleString(),
                         rate: fareBreakdown.handlingRatePerKg,
                       })}
                     </span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-bold text-slate-800">
                       ₱{fareBreakdown.handlingCost.toLocaleString()}
                     </span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex items-center justify-between text-slate-600">
                     <span>{t('multiplierLabel')}</span>
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-bold text-slate-800">
                       {fareBreakdown.availabilityMultiplier.toFixed(2)}×
                     </span>
                   </div>
                 </div>
               )}
-            </div>
-          </div>
 
-          <div className="mt-5 pt-4 border-t border-slate-200">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-bold text-slate-700">{t('totalPaymentLabel')}</span>
-              <span className="text-2xl font-extrabold text-emerald-700">
-                ₱{totalFare.toLocaleString()}
-              </span>
+              <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between">
+                <span className="font-bold text-slate-800">{t('totalPaymentLabel')}</span>
+                <span className="text-lg font-extrabold text-emerald-700">
+                  ₱{totalFare.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="pt-1 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span>{t('noMiddlemanNote')}</span>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              {t('noMiddlemanNote')}
-            </p>
           </div>
         </div>
       </div>
-    </div>
+
+      <PermitSoftCopyModal
+        permit={permit}
+        isOpen={isPermitModalOpen}
+        onClose={() => setIsPermitModalOpen(false)}
+      />
+    </>
   );
 }
